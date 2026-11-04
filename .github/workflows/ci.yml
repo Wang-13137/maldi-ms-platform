@@ -57,7 +57,7 @@ jobs:
         run: pytest -q --cov=maldi_platform --cov-report=term --cov-report=xml
       - name: 覆盖率报告
         if: matrix.python-version == '3.12'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: coverage-xml
           path: coverage.xml
@@ -109,7 +109,7 @@ jobs:
           assert marker.exists(), "py.typed 未随包分发"
           print("py.typed OK:", marker)
           PY
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: dist
           path: dist/
