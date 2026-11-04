@@ -1,0 +1,62 @@
+name: Bug 报告
+description: 报告可复现的缺陷（不要在这里贴真实受试者数据）
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        感谢反馈。提交前请确认：
+        1. 已用 `maldi-platform db check` 看过 schema 版本；
+        2. 复现命令里的数据是**合成数据或脱敏样例**，不要贴真实受试者的谱图与标签。
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: 现象
+      description: 实际发生了什么，期望发生什么
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: 最小复现
+      description: 完整命令与必要的输入文件结构（不要贴真实数据）
+      placeholder: |
+        maldi-platform dataset add --db demo.db --name ...
+        maldi-platform run ingest --db demo.db --suite 1 --file ...
+      render: shell
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: 期望结果与实际输出
+      description: 贴完整输出，包括退出码
+      render: shell
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: 版本
+      description: "`maldi-platform --version` 的输出"
+      placeholder: "maldi-platform 0.2.0"
+    validations:
+      required: true
+  - type: dropdown
+    id: os
+    attributes:
+      label: 操作系统
+      options:
+        - Linux
+        - macOS
+        - Windows
+        - 其他
+    validations:
+      required: true
+  - type: checkboxes
+    id: data-safety
+    attributes:
+      label: 数据安全确认
+      options:
+        - label: 我确认本 Issue 不含真实受试者数据或可识别信息
+          required: true

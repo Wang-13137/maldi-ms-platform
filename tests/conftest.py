@@ -1,19 +1,19 @@
 """共用 fixture：临时库、临时数据目录、两种评测结果格式。"""
+
 from __future__ import annotations
 
 import json
 import sys
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any
 
 import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
-from maldi_platform.db import init_db  # noqa: E402
-
 from helpers import ids16 as _ids16  # noqa: E402
+from maldi_platform.db import init_db  # noqa: E402
 
 
 @pytest.fixture()
@@ -40,7 +40,7 @@ def ids16():
 
 @pytest.fixture()
 def native_file(tmp_path):
-    def _make(payload: Dict[str, Any], name: str = "run.json") -> Path:
+    def _make(payload: dict[str, Any], name: str = "run.json") -> Path:
         p = tmp_path / name
         p.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
         return p

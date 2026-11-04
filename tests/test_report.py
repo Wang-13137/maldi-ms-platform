@@ -1,9 +1,9 @@
 """看板测试：能离线打开、内容真实、HTML 转义正确。"""
+
 from __future__ import annotations
 
-from maldi_platform import datasets, evals, report
-
 from helpers import make_native
+from maldi_platform import datasets, evals, report
 
 
 def _seed(conn, data_dir, ids16):

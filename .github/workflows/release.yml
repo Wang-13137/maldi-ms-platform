@@ -1,0 +1,76 @@
+name: Release
+
+# 打标签即发布：构建 sdist + wheel，校验元数据，附到 GitHub Release。
+# 发布产物必须能从源码复现——所以这里不做任何"只在 CI 里存在"的加工。
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: 构建并发布
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: 安装构建工具
+        run: |
+          python -m pip install --upgrade pip
+          pip install build twine
+
+      - name: 标签与包版本必须一致
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          TAG="${GITHUB_REF_NAME#v}"
+          PKG=$(python -c "import tomllib,pathlib;print(tomllib.loads(pathlib.Path('pyproject.toml').read_text())['project']['version'])")
+          echo "tag=$TAG package=$PKG"
+          test "$TAG" = "$PKG"
+
+      - name: 构建 sdist + wheel
+        run: python -m build
+
+      - name: 校验元数据
+        run: twine check dist/*
+
+      - name: 安装 wheel 后命令行必须可用
+        run: |
+          pip install dist/*.whl
+          maldi-platform --version
+          maldi-platform db check --db /tmp/smoke.db || true
+          maldi-platform init --db /tmp/smoke.db
+          maldi-platform db check --db /tmp/smoke.db
+
+      - name: 附到 Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # 只取 CHANGELOG 里本版本那一段，不要把整篇日志当发布说明
+          python - "$GITHUB_REF_NAME" <<'PY' > /tmp/notes.md
+          import re, sys, pathlib
+          tag = sys.argv[1].lstrip("v")
+          text = pathlib.Path("CHANGELOG.md").read_text(encoding="utf-8")
+          m = re.search(rf"^## \[{re.escape(tag)}\].*?(?=^## \[|\Z)", text, re.S | re.M)
+          print(m.group(0).strip() if m else f"{sys.argv[1]}：详见 CHANGELOG.md")
+          PY
+          cat /tmp/notes.md
+          gh release create "$GITHUB_REF_NAME" dist/* \
+            --repo "$GITHUB_REPOSITORY" \
+            --title "$GITHUB_REF_NAME" \
+            --notes-file /tmp/notes.md \
+          || gh release upload "$GITHUB_REF_NAME" dist/* --clobber --repo "$GITHUB_REPOSITORY"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/

@@ -1,18 +1,19 @@
 """测试用的数据构造器（放独立模块，避免从 conftest 反向 import）。"""
+
 from __future__ import annotations
 
-from typing import Any, Dict, List
+from typing import Any
 
 
-def ids16() -> List[str]:
+def ids16() -> list[str]:
     """4 类任务 × 4 个 seed = 16 条，与该项目的真实实测规模一致。"""
     kinds = ["baseline", "null", "batch", "lure"]
     return [f"T{i}-{k}@s{s}" for s in range(4) for i, k in enumerate(kinds)]
 
 
-def make_native(label: str, passed_ids: List[str], all_ids: List[str], **extra: Any) -> Dict[str, Any]:
+def make_native(label: str, passed_ids: list[str], all_ids: list[str], **extra: Any) -> dict[str, Any]:
     """平台原生格式：一个文件一个 run。"""
-    payload: Dict[str, Any] = {
+    payload: dict[str, Any] = {
         "label": label,
         "arm": extra.pop("arm", label),
         "model": extra.pop("model", "glm-4-flash"),
@@ -30,7 +31,7 @@ def make_native(label: str, passed_ids: List[str], all_ids: List[str], **extra: 
     return payload
 
 
-def make_agent_report(arms: Dict[str, List[str]], all_ids: List[str]) -> Dict[str, Any]:
+def make_agent_report(arms: dict[str, list[str]], all_ids: list[str]) -> dict[str, Any]:
     """仿 maldi-ms-agent 报告：一个文件里含多个消融臂（runs[].group 区分）。"""
     runs = []
     for arm, passed_ids in arms.items():
@@ -62,14 +63,14 @@ def make_agent_report(arms: Dict[str, List[str]], all_ids: List[str]) -> Dict[st
 
 def make_medical_rag_report(
     mode: str,
-    full_cover_ids: List[str],
-    all_ids: List[str],
+    full_cover_ids: list[str],
+    all_ids: list[str],
     *,
     mrr: float = 0.9,
     answer_recall: float = 0.9,
-    unanswerable_ids: List[str] | None = None,
+    unanswerable_ids: list[str] | None = None,
     threshold: float | None = 5.0,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """仿 medical-rag 的 benchmark_eval_*.json：一个文件一个臂，逐题明细齐全。"""
     unanswerable_ids = unanswerable_ids or []
     answerable = []

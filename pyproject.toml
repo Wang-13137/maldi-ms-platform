@@ -1,25 +1,55 @@
 [build-system]
-requires = ["setuptools>=68"]
+requires = ["setuptools>=77"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "maldi-ms-platform"
-version = "0.1.0"
-description = "MALDI-TOF 质谱算法项目的评测中台与数据中台（零第三方依赖）"
+version = "0.2.0"
+description = "MALDI-TOF 质谱算法项目的评测中台与数据中台（零第三方运行时依赖）"
 readme = "README.md"
 requires-python = ">=3.10"
-license = { text = "MIT" }
-authors = [{ name = "Wang Zhetong" }]
-keywords = ["maldi-tof", "evaluation", "data-registry", "reproducibility"]
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{ name = "Wang Zhetong", email = "wangzhetong@example.com" }]
+keywords = [
+    "maldi-tof",
+    "mass-spectrometry",
+    "evaluation-harness",
+    "data-registry",
+    "reproducibility",
+    "mcnemar",
+]
 classifiers = [
-    "Programming Language :: Python :: 3",
-    "License :: OSI Approved :: MIT License",
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Science/Research",
     "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Scientific/Engineering :: Bio-Informatics",
+    "Topic :: Software Development :: Quality Assurance",
+    "Typing :: Typed",
 ]
 dependencies = []
 
 [project.optional-dependencies]
-dev = ["pytest>=7.4"]
+dev = [
+    "pytest>=7.4",
+    "pytest-cov>=5.0",
+    "ruff>=0.6",
+    "mypy>=1.10",
+    "build>=1.2",
+]
+
+[project.urls]
+Homepage = "https://github.com/Wang-13137/maldi-ms-platform"
+Repository = "https://github.com/Wang-13137/maldi-ms-platform"
+Issues = "https://github.com/Wang-13137/maldi-ms-platform/issues"
+Changelog = "https://github.com/Wang-13137/maldi-ms-platform/blob/main/CHANGELOG.md"
+Documentation = "https://github.com/Wang-13137/maldi-ms-platform/tree/main/docs"
 
 [project.scripts]
 maldi-platform = "maldi_platform.cli:main"
@@ -27,6 +57,63 @@ maldi-platform = "maldi_platform.cli:main"
 [tool.setuptools.packages.find]
 where = ["src"]
 
+[tool.setuptools.package-data]
+maldi_platform = ["py.typed"]
+
+# --------------------------------------------------------------------------- #
+# 测试
+# --------------------------------------------------------------------------- #
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = "-q"
+addopts = "-q --strict-markers --strict-config"
+filterwarnings = [
+    "error::DeprecationWarning:maldi_platform.*",
+]
+
+# --------------------------------------------------------------------------- #
+# 覆盖率：门槛比当前实测低几个点，既能挡住悄悄退化，又不至于天天误报
+# --------------------------------------------------------------------------- #
+[tool.coverage.run]
+branch = true
+source = ["maldi_platform"]
+omit = ["*/__main__.py"]
+
+[tool.coverage.report]
+fail_under = 85
+show_missing = true
+skip_covered = false
+exclude_lines = [
+    "pragma: no cover",
+    "if __name__ == .__main__.:",
+    "raise NotImplementedError",
+]
+
+# --------------------------------------------------------------------------- #
+# 静态检查
+# --------------------------------------------------------------------------- #
+[tool.ruff]
+line-length = 110
+target-version = "py310"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "N", "UP", "B", "C4", "SIM", "RUF"]
+# E501 交给 formatter；RUF001-003 会把中文全角标点当"易混字符"，对中文项目是噪声
+ignore = ["E501", "RUF001", "RUF002", "RUF003"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["maldi_platform"]
+
+[tool.ruff.format]
+quote-style = "double"
+
+[tool.mypy]
+python_version = "3.10"
+files = ["src"]
+show_error_codes = true
+warn_unused_ignores = true
+warn_redundant_casts = true
+warn_return_any = true
+no_implicit_optional = true
+check_untyped_defs = true
+strict_equality = true

@@ -1,13 +1,23 @@
 # maldi-ms-platform
 
-MALDI-TOF 质谱算法项目的**评测中台**与**数据中台**。零第三方依赖，一个 SQLite 文件就是全部状态。
+[![CI](https://github.com/Wang-13137/maldi-ms-platform/actions/workflows/ci.yml/badge.svg)](https://github.com/Wang-13137/maldi-ms-platform/actions/workflows/ci.yml)
+[![tests](https://img.shields.io/badge/tests-111%20passing-brightgreen)](https://github.com/Wang-13137/maldi-ms-platform/actions/workflows/ci.yml)
+[![coverage](https://img.shields.io/badge/coverage-90%25%20branch-brightgreen)](https://github.com/Wang-13137/maldi-ms-platform)
+[![ruff](https://img.shields.io/badge/lint-ruff%200%20warnings-blue)](https://github.com/Wang-13137/maldi-ms-platform)
+[![mypy](https://img.shields.io/badge/type-mypy%20clean-blue)](https://github.com/Wang-13137/maldi-ms-platform)
+[![version](https://img.shields.io/badge/version-0.2.0-blue)](https://github.com/Wang-13137/maldi-ms-platform/releases)
+[![license](https://img.shields.io/badge/license-MIT-green)](LICENSE)
+
+MALDI-TOF 质谱算法项目的**评测中台**与**数据中台**。零第三方运行时依赖，一个 SQLite 文件就是全部状态。
 
 > 这不是"平台化"演示。它解决的是我在三个算法项目里真实踩到的四个问题：数据版本说不清、
 > 评测口径散的、小样本比较用错统计、以及"这一版到底比上一版好还是坏"只能靠感觉。
 
-- 测试：**90 项**
-- 依赖：Python ≥ 3.10，**无第三方运行时依赖**（dev 只装 pytest）
+- 测试：**111 项**，分支覆盖率 **90.2%**（门槛 85%）
+- 质量：ruff 0 告警 + mypy 0 错误 + 端到端冒烟 18 条契约，全部进 CI
+- 依赖：Python ≥ 3.10，**无第三方运行时依赖**
 - 形态：CLI + 静态看板（HTML 单文件，可离线打开）
+- 审计：敏感动作只追加留痕，库层禁止改删
 
 ---
 
@@ -35,12 +45,23 @@ MALDI-TOF 质谱算法项目的**评测中台**与**数据中台**。零第三�
 | 门禁 | `gate` | 通过率下限、**相对基线不得显著回归**、必须调用某工具；未通过退出码 1 |
 | 看板 | `report` | 自包含 HTML，内联 CSS + SVG，无外部资源 |
 
+### 平台自身
+
+| 能力 | 命令 | 说明 |
+|---|---|---|
+| schema 版本 | `db check` | 只读体检；库比程序旧会提示迁移，比程序新则拒绝启动 |
+| 审计日志 | `audit list` | 谁在何时做了什么、结果如何；可按动作与结论过滤 |
+
 ---
 
 ## 二、快速开始
 
 ```bash
 pip install -e ".[dev]"
+
+# 0. 建库并体检（schema 版本不一致会直接告诉你）
+maldi-platform init --db demo.db
+maldi-platform db check --db demo.db
 
 # 1. 数据中台：登记一个数据集（--source 只读，不复制数据）
 maldi-platform dataset add \
@@ -62,7 +83,12 @@ maldi-platform gate --db demo.db --run 3 --baseline 1
 
 # 5. 看板
 maldi-platform report --db demo.db --out reports/dashboard.html
+
+# 6. 审计
+maldi-platform audit list --db demo.db --outcome denied
 ```
+
+一键跑完整个流程（含断言）：`python scripts/smoke.py` → `smoke: 18/18 通过`。
 
 真实产物可以直接吃进去：`maldi-ms-agent` 的多 seed 报告（4 组消融 × 4 类任务 × 4 seed = 64 条）
 入库后会拆成 4 个 run，通过率分别复现为 `11/16`、`11/16`、`0/16`、`11/16`，
@@ -72,12 +98,14 @@ A 与 C 的配对 McNemar `p = 0.000977`。
 
 ## 三、五个关键设计决定
 
+> 完整取舍（含否决方案）在 `docs/adr/`，每篇一个决策。
+
 ### 1. 只登记元数据，真实数据没有"导出"这个选项
 
 真实受试者数据（`classification='real'`）在库里只存：名字、样本数、采集批次、内容哈希、
 存放指针。**payload 导出被硬拒**，而且不是靠策略配置——`real + open` 在登记阶段就报错，
-`check_export(..., 'payload')` 直接抛 `ExportDenied`。原因很简单：只要留了一个"配置一下就能导出"
-的口子，迟早有人配置它。
+`check_export(..., 'payload')` 直接抛 `ExportDeniedError`。原因很简单：只要留了一个
+"配置一下就能导出"的口子，迟早有人配置它。
 
 ### 2. 内容哈希是版本的主键
 
@@ -120,10 +148,14 @@ datasets ──< dataset_versions ──< dataset_fields
                                       ├──< metrics
                                       └──< gates
 suites ──< runs
+audit_log（独立，只追加）
 ```
 
-9 张表，全部在 `src/maldi_platform/db.py` 里，schema 版本记在 `meta` 表。
+10 张表，全部在 `src/maldi_platform/db.py` 里，schema 版本记在 `meta` 表。
 没有 ORM：SQL 就在代码里，读起来就是数据长什么样。
+
+**schema 版本独立于包版本演进**。0.2.0 从 v1 升到 v2（新增 `audit_log`），`init` 自动迁移，
+历史数据零改动；迁移脚本只增不改，库比程序新时拒绝启动（退出码 3），不做静默降级。
 
 ---
 
@@ -152,19 +184,45 @@ McNemar 精确 p = 0.000122 → 差异显著
 
 ---
 
-## 六、明确没做的
+## 六、工程规范
+
+| 关注点 | 做法 | 在哪 |
+|---|---|---|
+| 静态检查 | ruff（E/F/W/I/N/UP/B/C4/SIM/RUF）0 告警 | `pyproject.toml`、CI `quality` job |
+| 类型 | mypy（`warn_return_any` / `strict_equality` / `check_untyped_defs`）0 错误，随包分发 `py.typed` | `pyproject.toml` |
+| 测试 | 111 项，**分支覆盖率**门槛 85%，三平台矩阵（3.10/3.11/3.12） | CI `test` job |
+| 契约 | 18 条端到端冒烟：比较报显著、门禁失败退出 1、真实数据导不出、聚合报告拒收 | `scripts/smoke.py` |
+| 打包 | 每次 PR 构建 sdist + wheel，`twine check` 校验，装完验 CLI | CI `build` job |
+| 发布 | 打 `v*` 标签自动构建并附到 Release，标签与包版本必须一致 | `.github/workflows/release.yml` |
+| 决策记录 | 6 篇 ADR，写清取舍与否决方案 | `docs/adr/` |
+| 变更日志 | Keep a Changelog 格式，含独立的 `Schema` 小节 | `CHANGELOG.md` |
+| 数据合规 | 真实数据边界、审计、漏洞报告渠道 | `SECURITY.md` |
+| 贡献流程 | 四条硬约束、提交规范、新增报告格式的五步 | `CONTRIBUTING.md` |
+
+详细规范见 [`docs/engineering.md`](docs/engineering.md)。本地一条命令跑全套门禁：
+
+```bash
+make check     # ruff + format + mypy + pytest(覆盖率门槛)
+```
+
+---
+
+## 七、明确没做的
 
 - **没有 Web 服务 / 多用户 / 权限体系**：CLI + 静态页，够我一个人的三个项目用，多租户是另一个量级的事；
 - **没有前端框架**：看板是服务端渲染的 HTML，零 JS，能发给人、能进仓库、能离线打开；
 - **没有实验调度**：不负责启动作业，只负责"结果进来之后怎么被可信地记录和比较"；
-- **没有自动拉取模型 API**：评测跑在项目侧，中台不碰外部服务，也就不会把数据带出去。
+- **没有自动拉取模型 API**：评测跑在项目侧，不碰外部服务，也就不会把数据带出去；
+- **审计不做身份认证**：`--actor` 是记录不是认证，强身份应由部署层的 SSO / 网关注入。
 
 ---
 
-## 七、测试
+## 八、测试
 
 ```bash
-pytest -q          # 90 passed
+pytest -q                              # 111 passed
+pytest -q --cov=maldi_platform          # 覆盖率 90.2%（分支）
+python scripts/smoke.py                # 18 条命令行契约
 ```
 
 - `test_stats.py`（15）：Wilson 区间边界、McNemar 精确值（`11 vs 0 → 2/2^11`）、配对表只算交集；
@@ -172,10 +230,12 @@ pytest -q          # 90 passed
 - `test_evals.py`（26）：agent 报告拆臂、配对比较、回归门禁拦 / 放行 / 容忍噪声；
 - `test_report.py`（6）：看板含真实事实、HTML 转义、无外部资源；
 - `test_cli.py`（9）：端到端命令流、门禁失败反映到退出码；
-- `test_medical_rag_adapter.py`（9）：检索基准入库、自报值被忽略、拒答题默认排除、三臂配对与回归门禁。
+- `test_medical_rag_adapter.py`（9）：检索基准入库、自报值被忽略、拒答题默认排除、三臂配对与回归门禁；
+- `test_audit.py`（10）：只追加（触发器挡住改删）、被拒的导出留痕、门禁结论留痕、操作者优先级；
+- `test_schema.py`（11）：v1→v2 迁移、迁移幂等、拒绝降级、空库与缺库的区分。
 
-CI：GitHub Actions，3.10 / 3.11 / 3.12 矩阵。
+CI：GitHub Actions，`quality` / `test`（3.10、3.11、3.12 矩阵）/ `smoke` / `build` 四类 job。
 
-## 八、许可
+## 九、许可
 
 MIT。示例数据全部为合成数据；真实队列数据不在本仓库，也不随库分发。

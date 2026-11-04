@@ -3,15 +3,15 @@
 刻意不依赖 scipy：中台要能在客户现场/离线的机器上一条 ``pip install -e .`` 就跑起来，
 而这里用到的分布只有二项分布，``math.comb`` 足够。
 """
+
 from __future__ import annotations
 
 import math
-from typing import Dict, Tuple
 
 Z_95 = 1.959963984540054
 
 
-def wilson_ci(k: int, n: int, z: float = Z_95) -> Tuple[float, float]:
+def wilson_ci(k: int, n: int, z: float = Z_95) -> tuple[float, float]:
     """二项比例的 Wilson 区间。
 
     小样本（n=16 这种）下比正态近似靠谱得多——本项目 64 条实测里每组只有 16 条，
@@ -46,11 +46,12 @@ def mcnemar_exact(b: int, c: int) -> float:
     if n == 0:
         return 1.0
     k = min(b, c)
-    tail = sum(math.comb(n, i) for i in range(k + 1)) / (2 ** n)
-    return round(min(1.0, 2 * tail), 10)
+    tail: float = sum(math.comb(n, i) for i in range(k + 1)) / (2**n)
+    p_value: float = round(min(1.0, 2 * tail), 10)
+    return p_value
 
 
-def paired_table(a_passed: Dict[str, bool], b_passed: Dict[str, bool]) -> Dict[str, int]:
+def paired_table(a_passed: dict[str, bool], b_passed: dict[str, bool]) -> dict[str, int]:
     """按 case_id 取交集算 2x2 表：a_only / b_only / both / neither。"""
     shared = sorted(set(a_passed) & set(b_passed))
     a_only = sum(1 for k in shared if a_passed[k] and not b_passed[k])
@@ -66,7 +67,7 @@ def paired_table(a_passed: Dict[str, bool], b_passed: Dict[str, bool]) -> Dict[s
     }
 
 
-def rate_with_ci(k: int, n: int) -> Dict[str, float | int]:
+def rate_with_ci(k: int, n: int) -> dict[str, float | int]:
     """把 k/n 打包成报告要的形状。"""
     lo, hi = wilson_ci(k, n)
     return {"n": n, "k": k, "rate": round(k / n, 6) if n else 0.0, "ci_low": lo, "ci_high": hi}
@@ -79,4 +80,4 @@ def verdict(p: float, alpha: float = 0.05) -> str:
     return "差异不显著"
 
 
-__all__ = ["wilson_ci", "mcnemar_exact", "paired_table", "rate_with_ci", "verdict", "Z_95"]
+__all__ = ["Z_95", "mcnemar_exact", "paired_table", "rate_with_ci", "verdict", "wilson_ci"]

@@ -1,4 +1,5 @@
 """数据中台测试：哈希可复现、版本不可覆盖、真实数据导不出 payload。"""
+
 from __future__ import annotations
 
 import shutil
@@ -6,7 +7,7 @@ import shutil
 import pytest
 
 from maldi_platform import datasets
-from maldi_platform.datasets import DataError, ExportDenied
+from maldi_platform.datasets import DataError, ExportDeniedError
 
 
 # --------------------------------------------------------------------------- #
@@ -167,7 +168,7 @@ def test_real_payload_export_denied(conn, data_dir):
     """红线：真实数据原始谱与特征矩阵不得出域，payload 一律拒。"""
     ds_id = datasets.register_dataset(conn, "real37", classification="real", export_policy="restricted")
     v = datasets.add_version(conn, ds_id, "v1", source=data_dir, n_samples=37)
-    with pytest.raises(ExportDenied) as exc:
+    with pytest.raises(ExportDeniedError) as exc:
         datasets.check_export(conn, v, "payload")
     assert "真实" in str(exc.value)
 
@@ -175,7 +176,7 @@ def test_real_payload_export_denied(conn, data_dir):
 def test_internal_policy_payload_denied(conn, data_dir):
     ds_id = datasets.register_dataset(conn, "synth", export_policy="internal")
     v = datasets.add_version(conn, ds_id, "v1", source=data_dir)
-    with pytest.raises(ExportDenied):
+    with pytest.raises(ExportDeniedError):
         datasets.check_export(conn, v, "payload")
 
 
@@ -203,7 +204,9 @@ def test_export_check_missing_version(conn):
 def test_lineage_recorded_and_read_back(conn, data_dir):
     ds_id = datasets.register_dataset(conn, "d")
     v = datasets.add_version(conn, ds_id, "v1", source=data_dir)
-    datasets.add_lineage(conn, src_kind="dataset_version", src_id=v, dst_kind="run", dst_id=7, relation="consumed_by")
+    datasets.add_lineage(
+        conn, src_kind="dataset_version", src_id=v, dst_kind="run", dst_id=7, relation="consumed_by"
+    )
     edges = datasets.lineage_of(conn, "run", 7)
     assert len(edges) == 1
     assert edges[0]["src_id"] == v

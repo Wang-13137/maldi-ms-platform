@@ -5,17 +5,17 @@
 - 输出默认是给人看的中文文本；``--json`` 输出机器可读结果，便于脚本与 CI 断言。
 - 门禁命令在未通过时返回退出码 1，能直接当 CI 步骤用。
 """
+
 from __future__ import annotations
 
 import argparse
 import json
-import sqlite3
 import sys
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
-from . import __version__, datasets, evals, report
-from .db import init_db
+from . import __version__, audit, datasets, evals, report
+from .db import SCHEMA_VERSION, SchemaError, check_schema, connect, init_db
 
 DEFAULT_DB = "platform.db"
 
@@ -27,8 +27,9 @@ def _print_json(obj: Any) -> None:
     print(json.dumps(obj, ensure_ascii=False, indent=2))
 
 
-def _table(headers: List[str], rows: List[List[Any]]) -> None:
+def _table(headers: list[str], rows: list[list[Any]]) -> None:
     """极简定宽表。中文按两个字符宽度算，避免列错位。"""
+
     def width(s: Any) -> int:
         text = str(s)
         return sum(2 if ord(ch) > 0x2E80 else 1 for ch in text)
@@ -52,8 +53,9 @@ def _table(headers: List[str], rows: List[List[Any]]) -> None:
 # 子命令实现
 # --------------------------------------------------------------------------- #
 def cmd_init(args: argparse.Namespace) -> int:
-    init_db(args.db)
-    print(f"已初始化数据库：{args.db}（schema v1）")
+    conn = init_db(args.db)
+    print(f"已初始化数据库：{args.db}（schema v{SCHEMA_VERSION}）")
+    conn.close()
     return 0
 
 
@@ -79,6 +81,14 @@ def cmd_dataset_add(args: argparse.Namespace) -> int:
         notes=args.notes,
     )
     info = datasets.describe_version(conn, v_id)
+    audit.record(
+        conn,
+        "dataset.add",
+        target=f"{args.name}@{args.version}",
+        detail=f"classification={args.classification}; policy={args.policy}; "
+        f"hash={info['version']['content_hash']}",
+        actor=getattr(args, "actor", None),
+    )
     print(
         f"已登记数据集 #{ds_id} {args.name} @ {args.version}\n"
         f"  内容哈希：{info['version']['content_hash']}\n"
@@ -99,7 +109,10 @@ def cmd_dataset_list(args: argparse.Namespace) -> int:
         return 0
     _table(
         ["#", "名称", "类型", "导出策略", "modality", "版本数"],
-        [[r["id"], r["name"], r["classification"], r["export_policy"], r["modality"], r["n_versions"]] for r in rows],
+        [
+            [r["id"], r["name"], r["classification"], r["export_policy"], r["modality"], r["n_versions"]]
+            for r in rows
+        ],
     )
     return 0
 
@@ -114,12 +127,23 @@ def cmd_dataset_show(args: argparse.Namespace) -> int:
     print(f"{d['name']} @ {v['version']}（版本 id={v['id']}）")
     print(f"  类型：{d['classification']}  导出策略：{d['export_policy']}  modality：{d['modality']}")
     print(f"  内容哈希：{v['content_hash']}")
-    print(f"  文件数：{v['n_files']}  样本数：{v['n_samples'] if v['n_samples'] is not None else '—'}  批次：{v['acquisition_batch'] or '—'}")
+    print(
+        f"  文件数：{v['n_files']}  样本数：{v['n_samples'] if v['n_samples'] is not None else '—'}  批次：{v['acquisition_batch'] or '—'}"
+    )
     print(f"  存放位置：{v['storage_path'] or '—'}")
     if info["fields"]:
-        _table(["字段", "类型", "角色", "单位"], [[f["name"], f["dtype"] or "", f["role"] or "", f["unit"] or ""] for f in info["fields"]])
+        _table(
+            ["字段", "类型", "角色", "单位"],
+            [[f["name"], f["dtype"] or "", f["role"] or "", f["unit"] or ""] for f in info["fields"]],
+        )
     if info["splits"]:
-        _table(["切分", "样本数", "seed", "哈希"], [[s["name"], s["n_samples"], s["seed"] or "", (s["split_hash"] or "")[:12]] for s in info["splits"]])
+        _table(
+            ["切分", "样本数", "seed", "哈希"],
+            [
+                [s["name"], s["n_samples"], s["seed"] or "", (s["split_hash"] or "")[:12]]
+                for s in info["splits"]
+            ],
+        )
     return 0
 
 
@@ -132,18 +156,37 @@ def cmd_dataset_field(args: argparse.Namespace) -> int:
 
 def cmd_dataset_split(args: argparse.Namespace) -> int:
     conn = init_db(args.db)
-    datasets.add_split(conn, args.version_id, args.name, args.n_samples, seed=args.seed, split_hash=args.split_hash)
+    datasets.add_split(
+        conn, args.version_id, args.name, args.n_samples, seed=args.seed, split_hash=args.split_hash
+    )
     print(f"已登记切分 {args.name}：{args.n_samples} 条")
     return 0
 
 
 def cmd_export_check(args: argparse.Namespace) -> int:
     conn = init_db(args.db)
+    actor = getattr(args, "actor", None)
     try:
         datasets.check_export(conn, args.version_id, args.target)
-    except datasets.ExportDenied as exc:
+    except datasets.ExportDeniedError as exc:
+        audit.record(
+            conn,
+            "dataset.export",
+            target=f"version:{args.version_id}",
+            outcome="denied",
+            detail=f"target={args.target}; {exc}",
+            actor=actor,
+        )
         print(f"拒绝：{exc}")
         return 1
+    audit.record(
+        conn,
+        "dataset.export",
+        target=f"version:{args.version_id}",
+        outcome="ok",
+        detail=f"target={args.target}",
+        actor=actor,
+    )
     print(f"允许导出 target={args.target}")
     return 0
 
@@ -168,7 +211,10 @@ def cmd_suite_list(args: argparse.Namespace) -> int:
         return 0
     _table(
         ["#", "套件", "数据版本", "任务类型", "run 数"],
-        [[r["id"], r["name"], r["dataset_version_id"] or "—", r["task_type"] or "—", r["n_runs"]] for r in rows],
+        [
+            [r["id"], r["name"], r["dataset_version_id"] or "—", r["task_type"] or "—", r["n_runs"]]
+            for r in rows
+        ],
     )
     return 0
 
@@ -176,13 +222,23 @@ def cmd_suite_list(args: argparse.Namespace) -> int:
 def cmd_run_ingest(args: argparse.Namespace) -> int:
     conn = init_db(args.db)
     ids = evals.ingest_file(
-        conn, args.suite, args.file,
-        label=args.label, label_prefix=args.label_prefix,
+        conn,
+        args.suite,
+        args.file,
+        label=args.label,
+        label_prefix=args.label_prefix,
         include_unanswerable=getattr(args, "include_unanswerable", False),
     )
     for rid in ids:
         run = evals.get_run(conn, rid)
         print(f"已入库 run #{rid} {run['label']}：{run['n_passed']}/{run['n_cases']}")
+    audit.record(
+        conn,
+        "run.ingest",
+        target=str(args.file),
+        detail=f"suite={args.suite}; runs={ids}",
+        actor=getattr(args, "actor", None),
+    )
     return 0
 
 
@@ -223,12 +279,21 @@ def cmd_compare(args: argparse.Namespace) -> int:
     a, b, t = result["a"], result["b"], result["table"]
     print(f"A = #{a['id']} {a['label']}：{a['k']}/{a['n']}（{a['rate']:.1%}）")
     print(f"B = #{b['id']} {b['label']}：{b['k']}/{b['n']}（{b['rate']:.1%}）")
-    print(f"配对样本：{t['n_paired']}  仅 A 通过：{t['a_only']}  仅 B 通过：{t['b_only']}  都通过：{t['both']}  都未过：{t['neither']}")
+    print(
+        f"配对样本：{t['n_paired']}  仅 A 通过：{t['a_only']}  仅 B 通过：{t['b_only']}  都通过：{t['both']}  都未过：{t['neither']}"
+    )
     print(f"McNemar 精确 p = {result['mcnemar_p']:.6f} → {result['verdict']}")
     if result["by_task_class"]:
         _table(
             ["任务类", "A 通过率", "B 通过率"],
-            [[cls, f"{s['a_rate']:.1%}（{s['a_k']}/{s['a_n']}）", f"{s['b_rate']:.1%}（{s['b_k']}/{s['b_n']}）"] for cls, s in sorted(result["by_task_class"].items())],
+            [
+                [
+                    cls,
+                    f"{s['a_rate']:.1%}（{s['a_k']}/{s['a_n']}）",
+                    f"{s['b_rate']:.1%}（{s['b_k']}/{s['b_n']}）",
+                ]
+                for cls, s in sorted(result["by_task_class"].items())
+            ],
         )
     return 0
 
@@ -241,7 +306,9 @@ def cmd_gate(args: argparse.Namespace) -> int:
     if args.baseline is not None:
         results.append(evals.gate_no_regression(conn, args.run, args.baseline, alpha=args.alpha))
     if args.require_tool:
-        results.append(evals.gate_require_tool(conn, args.run, metric=args.require_tool, threshold=args.tool_threshold))
+        results.append(
+            evals.gate_require_tool(conn, args.run, metric=args.require_tool, threshold=args.tool_threshold)
+        )
     if not results:
         print("没有指定任何门禁条件（--min-pass / --baseline / --require-tool）", file=sys.stderr)
         return 2
@@ -250,6 +317,14 @@ def cmd_gate(args: argparse.Namespace) -> int:
         mark = "通过" if r["passed"] else "未通过"
         print(f"[{mark}] {r['name']}：{r['detail']}")
         failed += 0 if r["passed"] else 1
+    audit.record(
+        conn,
+        "gate.evaluate",
+        target=f"run:{args.run}",
+        outcome="ok" if failed == 0 else "failed",
+        detail="; ".join(f"{r['name']}={'pass' if r['passed'] else 'fail'}" for r in results),
+        actor=getattr(args, "actor", None),
+    )
     return 0 if failed == 0 else 1
 
 
@@ -263,6 +338,51 @@ def cmd_report(args: argparse.Namespace) -> int:
 # --------------------------------------------------------------------------- #
 # 解析器
 # --------------------------------------------------------------------------- #
+def cmd_db_check(args: argparse.Namespace) -> int:
+    """体检：只读，不迁移。库比程序新时返回 1，避免用旧程序写坏新库。"""
+    path = Path(args.db)
+    if not path.exists():
+        info = {
+            "status": "missing",
+            "db_version": 0,
+            "code_version": SCHEMA_VERSION,
+            "pending_migrations": list(range(1, SCHEMA_VERSION + 1)),
+        }
+    else:
+        conn = connect(path)
+        info = check_schema(conn)
+    if args.json:
+        _print_json(info)
+        return 0 if info["status"] == "ok" else 1
+    text = {
+        "ok": "一致",
+        "outdated": "库比程序旧，执行 init 会自动迁移",
+        "future": "库比程序新，请升级程序后再操作",
+        "empty": "文件存在但还没建表，执行 init",
+        "missing": "库文件不存在，执行 init 新建",
+    }[str(info["status"])]
+    print(f"库：{args.db}")
+    print(f"  schema：库 v{info['db_version']} / 程序 v{info['code_version']}")
+    print(f"  状态：{text}")
+    return 0 if info["status"] == "ok" else 1
+
+
+def cmd_audit_list(args: argparse.Namespace) -> int:
+    conn = init_db(args.db)
+    rows = audit.list_entries(conn, limit=args.limit, action=args.action, outcome=args.outcome)
+    if args.json:
+        _print_json(rows)
+        return 0
+    if not rows:
+        print("还没有审计记录。")
+        return 0
+    _table(
+        ["#", "时间(UTC)", "操作者", "动作", "目标", "结论"],
+        [[r["id"], r["ts"], r["actor"], r["action"], r["target"] or "—", r["outcome"]] for r in rows],
+    )
+    return 0
+
+
 def _db_parent() -> argparse.ArgumentParser:
     """让 --db 既能写在子命令前，也能写在子命令后。
 
@@ -284,6 +404,11 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p.add_argument("--db", default=DEFAULT_DB, help=f"SQLite 库路径（默认 {DEFAULT_DB}）")
     p.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
+    p.add_argument(
+        "--actor",
+        default=None,
+        help=f"操作者名（默认取环境变量 {audit.ACTOR_ENV} 或系统用户），会写进审计日志",
+    )
     sub = p.add_subparsers(dest="cmd", required=True)
 
     sub.add_parser("init", help="初始化数据库", parents=[_DB_PARENT]).set_defaults(func=cmd_init)
@@ -352,13 +477,19 @@ def build_parser() -> argparse.ArgumentParser:
     # run
     r = sub.add_parser("run", help="评测运行")
     rsub = r.add_subparsers(dest="sub", required=True)
-    ri = rsub.add_parser("ingest", help="把评测结果 JSON 入库（自动识别平台格式 / agent 报告 / medical-rag 检索基准）", parents=[_DB_PARENT])
+    ri = rsub.add_parser(
+        "ingest",
+        help="把评测结果 JSON 入库（自动识别平台格式 / agent 报告 / medical-rag 检索基准）",
+        parents=[_DB_PARENT],
+    )
     ri.add_argument("--suite", type=int, required=True)
     ri.add_argument("--file", required=True)
     ri.add_argument("--label", default=None)
     ri.add_argument("--label-prefix", dest="label_prefix", default=None)
     ri.add_argument(
-        "--include-unanswerable", dest="include_unanswerable", action="store_true",
+        "--include-unanswerable",
+        dest="include_unanswerable",
+        action="store_true",
         help="把拒答题也计入通过率（默认不计：其通过判据依赖逐臂后验最优阈值，会循环论证）",
     )
     ri.set_defaults(func=cmd_run_ingest)
@@ -366,6 +497,21 @@ def build_parser() -> argparse.ArgumentParser:
     rl.add_argument("--suite", type=int, default=None)
     rl.add_argument("--json", action="store_true")
     rl.set_defaults(func=cmd_run_list)
+
+    dbp = sub.add_parser("db", help="数据库本身的操作")
+    dbsub = dbp.add_subparsers(dest="sub", required=True)
+    dbc = dbsub.add_parser("check", help="检查 schema 版本是否与本程序一致（只读）", parents=[_DB_PARENT])
+    dbc.add_argument("--json", action="store_true")
+    dbc.set_defaults(func=cmd_db_check)
+
+    ab = sub.add_parser("audit", help="审计日志（只追加，不可改不可删）")
+    absub = ab.add_subparsers(dest="sub", required=True)
+    abl = absub.add_parser("list", help="列出最近的审计记录", parents=[_DB_PARENT])
+    abl.add_argument("--limit", type=int, default=50)
+    abl.add_argument("--action", default=None, help="如 dataset.export")
+    abl.add_argument("--outcome", default=None, choices=list(audit.OUTCOMES))
+    abl.add_argument("--json", action="store_true")
+    abl.set_defaults(func=cmd_audit_list)
 
     c = sub.add_parser("compare", help="配对比较两个 run（McNemar 精确检验）", parents=[_DB_PARENT])
     c.add_argument("--a", type=int, required=True)
@@ -390,12 +536,15 @@ def build_parser() -> argparse.ArgumentParser:
     return p
 
 
-def main(argv: Optional[List[str]] = None) -> int:
+def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
     try:
         return int(args.func(args))
-    except (datasets.DataError, evals.EvalError) as exc:
+    except SchemaError as exc:
+        print(f"schema 不兼容：{exc}", file=sys.stderr)
+        return 3
+    except (datasets.DataError, evals.EvalError, audit.AuditError) as exc:
         print(f"错误：{exc}", file=sys.stderr)
         return 1
     except FileNotFoundError as exc:

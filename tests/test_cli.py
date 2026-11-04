@@ -1,11 +1,11 @@
 """CLI 端到端测试：一条命令能跑通，门禁失败要反映到退出码。"""
+
 from __future__ import annotations
 
 import json
 
-from maldi_platform.cli import main
-
 from helpers import make_agent_report, make_native
+from maldi_platform.cli import main
 
 
 def run(argv, capsys):
@@ -20,12 +20,20 @@ def test_init_and_dataset_flow(tmp_path, data_dir, capsys):
 
     code, out = run(
         [
-            "dataset", "add", "--db", db,
-            "--name", "synth-uti",
-            "--source", str(data_dir),
-            "--n-samples", "37",
-            "--batch", "B1",
-            "--modality", "maldi-spectrum",
+            "dataset",
+            "add",
+            "--db",
+            db,
+            "--name",
+            "synth-uti",
+            "--source",
+            str(data_dir),
+            "--n-samples",
+            "37",
+            "--batch",
+            "B1",
+            "--modality",
+            "maldi-spectrum",
         ],
         capsys,
     )
@@ -51,12 +59,29 @@ def test_dataset_show_json(tmp_path, data_dir, capsys):
 def test_export_check_denies_real_payload(tmp_path, data_dir, capsys):
     db = str(tmp_path / "cli.db")
     run(
-        ["dataset", "add", "--db", db, "--name", "real37", "--classification", "real",
-         "--policy", "restricted", "--source", str(data_dir)],
+        [
+            "dataset",
+            "add",
+            "--db",
+            db,
+            "--name",
+            "real37",
+            "--classification",
+            "real",
+            "--policy",
+            "restricted",
+            "--source",
+            str(data_dir),
+        ],
         capsys,
     )
-    assert run(["dataset", "export-check", "--db", db, "--version-id", "1", "--target", "metadata"], capsys)[0] == 0
-    code, out = run(["dataset", "export-check", "--db", db, "--version-id", "1", "--target", "payload"], capsys)
+    assert (
+        run(["dataset", "export-check", "--db", db, "--version-id", "1", "--target", "metadata"], capsys)[0]
+        == 0
+    )
+    code, out = run(
+        ["dataset", "export-check", "--db", db, "--version-id", "1", "--target", "payload"], capsys
+    )
     assert code == 1
     assert "拒绝" in out
 
@@ -83,7 +108,9 @@ def test_ingest_agent_report_via_cli(tmp_path, ids16, native_file, capsys):
     db = str(tmp_path / "cli.db")
     run(["suite", "add", "--db", db, "--name", "m9"], capsys)
     p = native_file(make_agent_report({"A_full": ids16[:11], "C_no_tool": []}, ids16), "agent.json")
-    code, out = run(["run", "ingest", "--db", db, "--suite", "1", "--file", str(p), "--label-prefix", "m9"], capsys)
+    code, out = run(
+        ["run", "ingest", "--db", db, "--suite", "1", "--file", str(p), "--label-prefix", "m9"], capsys
+    )
     assert code == 0
     assert "m9:A_full" in out
     assert "m9:C_no_tool" in out
@@ -116,7 +143,7 @@ def test_report_command(tmp_path, data_dir, ids16, native_file, capsys):
     run(["suite", "add", "--db", db, "--name", "m9", "--dataset-version", "1"], capsys)
     a = native_file(make_native("A_full", ids16[:11], ids16), "a.json")
     run(["run", "ingest", "--db", db, "--suite", "1", "--file", str(a)], capsys)
-    code, out = run(["report", "--db", db, "--out", str(out_path)], capsys)
+    code, _out = run(["report", "--db", db, "--out", str(out_path)], capsys)
     assert code == 0
     assert out_path.exists()
 
@@ -124,6 +151,8 @@ def test_report_command(tmp_path, data_dir, ids16, native_file, capsys):
 def test_error_message_on_missing_file(tmp_path, capsys):
     db = str(tmp_path / "cli.db")
     run(["suite", "add", "--db", db, "--name", "m9"], capsys)
-    code, out = run(["run", "ingest", "--db", db, "--suite", "1", "--file", str(tmp_path / "nope.json")], capsys)
+    code, out = run(
+        ["run", "ingest", "--db", db, "--suite", "1", "--file", str(tmp_path / "nope.json")], capsys
+    )
     assert code == 1
     assert "错误" in out

@@ -5,16 +5,16 @@
 2. 门禁在"候选显著变差"时必须拦下来，在"变好"时必须放行；
 3. 跨套件比较必须报错（不同批样本不能配对）。
 """
+
 from __future__ import annotations
 
 import json
 
 import pytest
 
+from helpers import make_agent_report, make_native
 from maldi_platform import datasets, evals
 from maldi_platform.evals import EvalError
-
-from helpers import make_agent_report, make_native
 
 
 # --------------------------------------------------------------------------- #
@@ -159,7 +159,7 @@ def test_compare_full_vs_no_tool_is_significant(conn, ids16):
     r = evals.compare_runs(conn, a, b)
     assert r["table"]["a_only"] == 11
     assert r["table"]["b_only"] == 0
-    assert r["mcnemar_p"] == pytest.approx(2 / 2 ** 11, rel=1e-6)
+    assert r["mcnemar_p"] == pytest.approx(2 / 2**11, rel=1e-6)
     assert r["verdict"] == "差异显著"
 
 
@@ -185,7 +185,9 @@ def test_compare_handles_partial_overlap(conn):
     """两次 run 的 case 集合不完全一致时只比交集，不把缺失当失败。"""
     sid = evals.create_suite(conn, "s")
     (a,) = evals.ingest_native(
-        conn, sid, {"label": "A", "cases": [{"case_id": "x", "passed": True}, {"case_id": "y", "passed": True}]}
+        conn,
+        sid,
+        {"label": "A", "cases": [{"case_id": "x", "passed": True}, {"case_id": "y", "passed": True}]},
     )
     (b,) = evals.ingest_native(conn, sid, {"label": "B", "cases": [{"case_id": "x", "passed": True}]})
     r = evals.compare_runs(conn, a, b)

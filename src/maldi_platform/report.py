@@ -3,13 +3,13 @@
 为什么不用前端框架：这张页面要能直接发给别人、丢进仓库、离线打开。所以零外部资源、
 零 CDN、零 JS 依赖——所有的图都是内联 SVG，所有的样式都在 <style> 里。
 """
+
 from __future__ import annotations
 
 import html
-import json
 import sqlite3
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from . import evals
 from .datasets import list_datasets, list_versions
@@ -59,9 +59,7 @@ def _esc(value: Any) -> str:
 
 def _bar(rate: float, width: int = 96) -> str:
     pct = max(0.0, min(1.0, rate))
-    return (
-        f'<span class="bar" style="width:{width}px"><span style="width:{pct * 100:.1f}%"></span></span>'
-    )
+    return f'<span class="bar" style="width:{width}px"><span style="width:{pct * 100:.1f}%"></span></span>'
 
 
 def _class_badge(classification: str) -> str:
@@ -71,7 +69,11 @@ def _class_badge(classification: str) -> str:
 
 
 def _policy_badge(policy: str) -> str:
-    mapping = {"open": ("b-open", "open"), "internal": ("b-internal", "internal"), "restricted": ("b-restricted", "restricted")}
+    mapping = {
+        "open": ("b-open", "open"),
+        "internal": ("b-internal", "internal"),
+        "restricted": ("b-restricted", "restricted"),
+    }
     cls, label = mapping.get(policy, ("b-internal", policy))
     return f'<span class="badge {cls}">{_esc(label)}</span>'
 
@@ -84,7 +86,7 @@ def _section_datasets(conn: sqlite3.Connection) -> str:
     if not rows:
         return '<p class="empty">还没有登记任何数据集。</p>'
 
-    parts: List[str] = []
+    parts: list[str] = []
     for d in rows:
         versions = list_versions(conn, d["id"])
         v_rows = "".join(
@@ -112,7 +114,7 @@ def _section_datasets(conn: sqlite3.Connection) -> str:
     return "".join(parts)
 
 
-def _suite_runs(conn: sqlite3.Connection, suite_id: int) -> List[Dict[str, Any]]:
+def _suite_runs(conn: sqlite3.Connection, suite_id: int) -> list[dict[str, Any]]:
     return evals.list_runs(conn, suite_id)
 
 
@@ -121,7 +123,7 @@ def _section_evals(conn: sqlite3.Connection) -> str:
     if not suites:
         return '<p class="empty">还没有评测套件。</p>'
 
-    blocks: List[str] = []
+    blocks: list[str] = []
     for s in suites:
         runs = _suite_runs(conn, s["id"])
         if runs:
@@ -165,7 +167,7 @@ def _section_evals(conn: sqlite3.Connection) -> str:
             for cand in runs[1:]:
                 try:
                     cmp = evals.compare_runs(conn, baseline["id"], cand["id"])
-                except Exception as exc:  # noqa: BLE001 - 报告不该因为一个比较失败而整体失败
+                except Exception as exc:
                     cmp_rows.append(
                         f"<tr><td>{_esc(cand['label'])}</td><td colspan='4' class='empty'>{_esc(exc)}</td></tr>"
                     )
@@ -186,9 +188,7 @@ def _section_evals(conn: sqlite3.Connection) -> str:
             blocks.append(
                 f"<h3 class='note'>与基线「{_esc(baseline['label'])}」的配对比较（McNemar 精确检验）</h3>"
                 "<table><thead><tr><th>候选</th><th>仅基线通过</th><th>仅候选通过</th>"
-                "<th>p</th><th>结论</th></tr></thead><tbody>"
-                + "".join(cmp_rows)
-                + "</tbody></table>"
+                "<th>p</th><th>结论</th></tr></thead><tbody>" + "".join(cmp_rows) + "</tbody></table>"
             )
     return "".join(blocks)
 
@@ -241,7 +241,7 @@ def build_html(conn: sqlite3.Connection, *, title: str = "maldi-ms 评测与数�
     <div class="card"><div class="k">数据版本</div><div class="v">{n_versions}</div></div>
     <div class="card"><div class="k">评测运行</div><div class="v">{n_runs}</div></div>
     <div class="card"><div class="k">门禁记录</div><div class="v">{n_gates}</div></div>
-    <div class="card"><div class="k">门禁未通过</div><div class="v" style="color:{'#a8322a' if n_gate_fail else '#1c7a41'}">{n_gate_fail}</div></div>
+    <div class="card"><div class="k">门禁未通过</div><div class="v" style="color:{"#a8322a" if n_gate_fail else "#1c7a41"}">{n_gate_fail}</div></div>
   </div>
 
   <h2>数据中台</h2>
@@ -262,7 +262,7 @@ def build_html(conn: sqlite3.Connection, *, title: str = "maldi-ms 评测与数�
 """
 
 
-def write_report(conn: sqlite3.Connection, out_path: str | Path, *, title: Optional[str] = None) -> Path:
+def write_report(conn: sqlite3.Connection, out_path: str | Path, *, title: str | None = None) -> Path:
     p = Path(out_path)
     if p.parent and not p.parent.exists():
         p.parent.mkdir(parents=True, exist_ok=True)

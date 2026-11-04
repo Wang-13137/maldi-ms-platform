@@ -7,7 +7,36 @@ on:
     branches: [main]
   workflow_dispatch:
 
+# 同一分支的新提交作废旧的排队任务，避免矩阵 × N 浪费 runner
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
 jobs:
+  # 静态门禁：跑一个平台就够，快反馈
+  quality:
+    name: 静态检查（ruff + mypy）
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: 安装
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+      - name: ruff（E/F/W/I/N/UP/B/C4/SIM/RUF，0 告警）
+        run: ruff check src tests
+      - name: ruff format（不允许有差异）
+        run: ruff format --check src tests
+      - name: mypy（warn_return_any / strict_equality / check_untyped_defs）
+        run: mypy src
+
+  # 矩阵测试：3.10 是声明的最低版本，必须真跑
   test:
     name: py${{ matrix.python-version }}
     runs-on: ubuntu-latest
@@ -24,11 +53,19 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -e ".[dev]"
-      - name: 单元与端到端测试
-        run: pytest -q
+      - name: 单元与端到端测试（含分支覆盖率门槛 85%）
+        run: pytest -q --cov=maldi_platform --cov-report=term --cov-report=xml
+      - name: 覆盖率报告
+        if: matrix.python-version == '3.12'
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-xml
+          path: coverage.xml
+          if-no-files-found: ignore
 
+  # 命令行契约：从使用者视角把关键断言跑一遍
   smoke:
-    name: CLI 冒烟 + 看板 + 门禁退出码
+    name: 端到端冒烟（18 条契约）
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -36,72 +73,43 @@ jobs:
         with:
           python-version: "3.12"
       - name: 安装
-        run: pip install -e .
-
-      - name: 数据中台登记
         run: |
-          maldi-platform init --db demo.db
-          maldi-platform dataset add --db demo.db --name synth-uti --version v1 \
-            --classification synthetic --policy open --modality maldi-spectrum \
-            --n-samples 40 --batch B1 --source ./examples/data
-          maldi-platform dataset list --db demo.db
+          python -m pip install --upgrade pip
+          pip install -e .
+      - name: 冒烟
+        run: python scripts/smoke.py
 
-      - name: 评测中台入库
+  # 打包：每次 PR 都验一遍，避免"代码好好的，发不出去"
+  build:
+    name: 构建与安装校验
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: 安装构建工具
         run: |
-          maldi-platform suite add --db demo.db --name m9-agent --dataset-version 1
-          maldi-platform run ingest --db demo.db --suite 1 \
-            --file examples/demo_report.json --label-prefix m9
-          maldi-platform run list --db demo.db
-
-      - name: 配对比较应显著
+          python -m pip install --upgrade pip
+          pip install build twine
+      - name: 构建 sdist + wheel
+        run: python -m build
+      - name: 元数据校验
+        run: twine check dist/*
+      - name: 装 wheel 后命令行可用、类型标记随包分发
         run: |
-          OUT=$(maldi-platform compare --db demo.db --a 1 --b 3)
-          echo "$OUT"
-          echo "$OUT" | grep -q "差异显著"
-
-      - name: 门禁通过分支返回 0
-        run: maldi-platform gate --db demo.db --run 1 --min-pass 0.6 --require-tool perm_called_rate
-
-      - name: 回归门禁必须拦住并返回 1
-        run: |
-          set +e
-          maldi-platform gate --db demo.db --run 3 --baseline 1
-          CODE=$?
-          set -e
-          echo "exit=$CODE"
-          test "$CODE" = "1"
-
-      - name: 真实数据 payload 必须导不出
-        run: |
-          maldi-platform dataset add --db demo.db --name real-demo --version v1 \
-            --classification real --policy restricted --source ./examples/data
-          set +e
-          maldi-platform dataset export-check --db demo.db --version-id 2 --target payload
-          CODE=$?
-          set -e
-          test "$CODE" = "1"
-
-      - name: 第二个算法项目同构接入（检索基准）
-        run: |
-          maldi-platform suite add --db demo.db --name rag-retrieval --dataset-version 1
-          maldi-platform run ingest --db demo.db --suite 2 --file examples/rag_vector.json
-          maldi-platform run ingest --db demo.db --suite 2 --file examples/rag_rerank.json
-          A=$(maldi-platform run list --db demo.db --suite 2 --json | python -c "import json,sys;print(json.load(sys.stdin)[0]['id'])")
-          B=$(maldi-platform run list --db demo.db --suite 2 --json | python -c "import json,sys;print(json.load(sys.stdin)[1]['id'])")
-          OUT=$(maldi-platform compare --db demo.db --a "$A" --b "$B")
-          echo "$OUT"
-          echo "$OUT" | grep -q "差异显著"
-
-      - name: 只有聚合结论的报告必须拒收
-        run: |
-          echo '{"left":"a","right":"b","n_pairs":10,"scopes":{}}' > /tmp/agg.json
-          set +e
-          maldi-platform run ingest --db demo.db --suite 2 --file /tmp/agg.json 2>&1 | tee /tmp/agg.log
-          grep -q "逐题明细" /tmp/agg.log
-          set -e
-
-      - name: 生成看板
-        run: |
-          maldi-platform report --db demo.db --out reports/dashboard.html
-          test -s reports/dashboard.html
-          grep -q "评测中台" reports/dashboard.html
+          pip install dist/*.whl
+          maldi-platform --version
+          maldi-platform init --db /tmp/pkg.db
+          maldi-platform db check --db /tmp/pkg.db
+          python - <<'PY'
+          import pathlib
+          import maldi_platform as m
+          marker = pathlib.Path(m.__file__).parent / "py.typed"
+          assert marker.exists(), "py.typed 未随包分发"
+          print("py.typed OK:", marker)
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/

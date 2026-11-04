@@ -1,4 +1,5 @@
 """统计函数测试：区间与小样本精确检验是这套中台的地基，边界必须钉死。"""
+
 from __future__ import annotations
 
 import pytest
@@ -46,7 +47,7 @@ def test_mcnemar_exact_11_vs_0():
 
     这个数比卡方近似（≈0.0003）大，小样本上近似会高估显著性。
     """
-    assert mcnemar_exact(11, 0) == pytest.approx(2 / 2 ** 11, rel=1e-6)
+    assert mcnemar_exact(11, 0) == pytest.approx(2 / 2**11, rel=1e-6)
 
 
 def test_mcnemar_exact_3_vs_0():

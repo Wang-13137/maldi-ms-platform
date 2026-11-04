@@ -3,16 +3,22 @@
 中台不引入任何外部依赖：一个 SQLite 文件就是全部状态，便于备份、审计与离线复现。
 所有时间戳统一用 UTC ISO8601 字符串，避免跨机器时区漂移。
 """
+
 from __future__ import annotations
 
 import sqlite3
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Optional, Union
+from typing import Any
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 
-PathLike = Union[str, Path]
+PathLike = str | Path
+
+
+class SchemaError(RuntimeError):
+    """库的 schema 版本与本程序不兼容（通常是用旧程序打开了新库）。"""
+
 
 _SCHEMA = """
 PRAGMA foreign_keys = ON;
@@ -145,6 +151,38 @@ CREATE INDEX IF NOT EXISTS idx_runs_suite ON runs(suite_id);
 CREATE INDEX IF NOT EXISTS idx_lineage_dst ON lineage(dst_kind, dst_id);
 """
 
+# 迁移脚本：键是"升到哪一版"，值是从上一版升到该版要执行的 SQL。
+# 只增不改——已发布的版本号对应的迁移脚本一旦进入使用者手里就不能再动，
+# 否则同一个库在不同机器上会演化成两种结构。
+_MIGRATIONS: dict[int, str] = {
+    2: """
+-- v2：审计日志。谁在什么时候把哪份数据导出去了，必须能事后查。
+CREATE TABLE IF NOT EXISTS audit_log (
+    id      INTEGER PRIMARY KEY AUTOINCREMENT,
+    ts      TEXT NOT NULL,
+    actor   TEXT NOT NULL,
+    action  TEXT NOT NULL,
+    target  TEXT,
+    outcome TEXT NOT NULL CHECK (outcome IN ('ok', 'denied', 'failed')),
+    detail  TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_audit_ts ON audit_log(ts);
+
+-- 用触发器把"只追加"钉在库层面，而不是靠调用方自觉。
+CREATE TRIGGER IF NOT EXISTS audit_log_no_update
+BEFORE UPDATE ON audit_log
+BEGIN
+    SELECT RAISE(ABORT, 'audit_log 只允许追加，不允许 UPDATE');
+END;
+
+CREATE TRIGGER IF NOT EXISTS audit_log_no_delete
+BEFORE DELETE ON audit_log
+BEGIN
+    SELECT RAISE(ABORT, 'audit_log 只允许追加，不允许 DELETE');
+END;
+""",
+}
+
 
 def now_iso() -> str:
     """统一的 UTC 时间戳（秒级即可，报告中按本地时区展示由前端决定）。"""
@@ -163,18 +201,71 @@ def connect(path: PathLike) -> sqlite3.Connection:
 
 
 def init_db(path: PathLike) -> sqlite3.Connection:
-    """建库建表（幂等）。已存在的库不会被清空。"""
+    """建库 + 按需迁移到 ``SCHEMA_VERSION``（幂等，已存在的库不会被清空）。
+
+    只做"往前升"：库比程序新时直接报错，不做静默降级——用旧程序写新库是最容易
+    产生"看不见的数据损坏"的场景，宁可让人先升级程序。
+    """
     conn = connect(path)
-    conn.executescript(_SCHEMA)
-    conn.execute(
-        "INSERT INTO meta(key, value) VALUES('schema_version', ?) "
-        "ON CONFLICT(key) DO UPDATE SET value = excluded.value",
-        (str(SCHEMA_VERSION),),
-    )
+    conn.executescript(_SCHEMA)  # v1 基线，全部 CREATE IF NOT EXISTS
+
+    current = current_version(conn)
+    if current > SCHEMA_VERSION:
+        raise SchemaError(
+            f"库的 schema 是 v{current}，本程序只支持到 v{SCHEMA_VERSION}：请升级 maldi-platform 后再操作。"
+        )
+    for target in range(current + 1, SCHEMA_VERSION + 1):
+        conn.executescript(_MIGRATIONS[target])
+
+    _set_meta(conn, "schema_version", str(SCHEMA_VERSION))
     conn.commit()
     return conn
 
 
-def get_meta(conn: sqlite3.Connection, key: str) -> Optional[str]:
+def current_version(conn: sqlite3.Connection) -> int:
+    """读库里的 schema 版本。老库没有 meta 记录时按 v1 处理（v1 时代还没有版本字段）。"""
+    raw = get_meta(conn, "schema_version")
+    if raw is None:
+        return 1
+    try:
+        return int(raw)
+    except ValueError as exc:
+        raise SchemaError(f"meta.schema_version 不是整数：{raw!r}") from exc
+
+
+def check_schema(conn: sqlite3.Connection) -> dict[str, Any]:
+    """给 ``maldi-platform db check`` 用的体检结果，可直接作为 CI 步骤的输出。"""
+    try:
+        db_version = current_version(conn)
+    except sqlite3.OperationalError:
+        # 文件在但表还没建：不是"版本不对"，是"还没初始化"
+        return {
+            "status": "empty",
+            "db_version": 0,
+            "code_version": SCHEMA_VERSION,
+            "pending_migrations": list(range(1, SCHEMA_VERSION + 1)),
+        }
+    if db_version > SCHEMA_VERSION:
+        status = "future"
+    elif db_version < SCHEMA_VERSION:
+        status = "outdated"
+    else:
+        status = "ok"
+    return {
+        "status": status,
+        "db_version": db_version,
+        "code_version": SCHEMA_VERSION,
+        "pending_migrations": list(range(db_version + 1, SCHEMA_VERSION + 1)),
+    }
+
+
+def _set_meta(conn: sqlite3.Connection, key: str, value: str) -> None:
+    conn.execute(
+        "INSERT INTO meta(key, value) VALUES(?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+        (key, value),
+    )
+
+
+def get_meta(conn: sqlite3.Connection, key: str) -> str | None:
     row = conn.execute("SELECT value FROM meta WHERE key = ?", (key,)).fetchone()
     return row["value"] if row else None

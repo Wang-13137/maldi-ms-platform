@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 安全漏洞与数据泄露
+    url: https://github.com/Wang-13137/maldi-ms-platform/security/advisories/new
+    about: 请私下报告，不要开公开 Issue（见 SECURITY.md）
+  - name: 使用问题与设计说明
+    url: https://github.com/Wang-13137/maldi-ms-platform/blob/main/docs/architecture.md
+    about: 先看架构文档与 docs/engineering.md，多数"为什么这样设计"在那里

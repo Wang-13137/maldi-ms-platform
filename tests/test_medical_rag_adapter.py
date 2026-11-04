@@ -5,14 +5,15 @@
 2. 拒答题默认不进通过率（阈值是逐臂后验最优挑出来的，用它给自己打分是循环论证）；
 3. 三个臂落在同一套件里，可以直接按 case_id 配对做 McNemar。
 """
+
 from __future__ import annotations
 
 import json
 
 import pytest
 
-from maldi_platform import evals
 from helpers import make_medical_rag_report
+from maldi_platform import evals
 
 ALL_IDS = [f"QA{i:03d}" for i in range(1, 13)]  # 12 条可答题
 UNANS_IDS = ["QU001", "QU002", "QU003"]
@@ -83,9 +84,7 @@ def test_include_unanswerable_adds_them_as_failures(conn, tmp_path):
 
 
 def test_answer_recall_and_mrr_means_recomputed_from_cases(conn, tmp_path):
-    payload = make_medical_rag_report(
-        "纯向量", ALL_IDS[:6], ALL_IDS, mrr=1.0, answer_recall=1.0
-    )
+    payload = make_medical_rag_report("纯向量", ALL_IDS[:6], ALL_IDS, mrr=1.0, answer_recall=1.0)
     payload["overall"]["mrr"] = 0.123  # 自报值，故意错
     path = _write(tmp_path, payload, "vector.json")
     sid = _suite(conn)
