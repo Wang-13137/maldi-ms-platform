@@ -176,7 +176,9 @@ def cmd_suite_list(args: argparse.Namespace) -> int:
 def cmd_run_ingest(args: argparse.Namespace) -> int:
     conn = init_db(args.db)
     ids = evals.ingest_file(
-        conn, args.suite, args.file, label=args.label, label_prefix=args.label_prefix
+        conn, args.suite, args.file,
+        label=args.label, label_prefix=args.label_prefix,
+        include_unanswerable=getattr(args, "include_unanswerable", False),
     )
     for rid in ids:
         run = evals.get_run(conn, rid)
@@ -350,11 +352,15 @@ def build_parser() -> argparse.ArgumentParser:
     # run
     r = sub.add_parser("run", help="评测运行")
     rsub = r.add_subparsers(dest="sub", required=True)
-    ri = rsub.add_parser("ingest", help="把评测结果 JSON 入库（自动识别平台格式 / agent 报告格式）", parents=[_DB_PARENT])
+    ri = rsub.add_parser("ingest", help="把评测结果 JSON 入库（自动识别平台格式 / agent 报告 / medical-rag 检索基准）", parents=[_DB_PARENT])
     ri.add_argument("--suite", type=int, required=True)
     ri.add_argument("--file", required=True)
     ri.add_argument("--label", default=None)
     ri.add_argument("--label-prefix", dest="label_prefix", default=None)
+    ri.add_argument(
+        "--include-unanswerable", dest="include_unanswerable", action="store_true",
+        help="把拒答题也计入通过率（默认不计：其通过判据依赖逐臂后验最优阈值，会循环论证）",
+    )
     ri.set_defaults(func=cmd_run_ingest)
     rl = rsub.add_parser("list", help="列出运行", parents=[_DB_PARENT])
     rl.add_argument("--suite", type=int, default=None)

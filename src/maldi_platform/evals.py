@@ -19,6 +19,9 @@ from .stats import mcnemar_exact, paired_table, rate_with_ci, verdict
 # agent 仓库报告里 detail 可能很长的字段，入库前截断，避免单条 SQL 几 MB
 _DETAIL_LIMIT = 600
 
+# detail 里这些连续型字段会被重算成 ``<字段>_mean`` 指标
+_MEAN_DETAIL_FIELDS = ("answer_recall", "mrr")
+
 
 class EvalError(RuntimeError):
     """评测中台的业务错误。"""
@@ -163,6 +166,7 @@ def _refresh_metrics(conn: sqlite3.Connection, run_id: int) -> None:
     _upsert_metric(conn, run_id, "pass_rate", stats["rate"], n, stats["ci_low"], stats["ci_high"])
 
     flags = []
+    means: Dict[str, List[float]] = {}
     for r in rows:
         try:
             d = json.loads(r["detail"] or "{}")
@@ -170,10 +174,17 @@ def _refresh_metrics(conn: sqlite3.Connection, run_id: int) -> None:
             continue
         if "called_permutation" in d:
             flags.append(bool(d["called_permutation"]))
+        # 逐题连续型指标（检索类）也从 cases 重算均值，同样不信任输入方自报的 overall
+        for field in _MEAN_DETAIL_FIELDS:
+            v = d.get(field)
+            if isinstance(v, (int, float)) and not isinstance(v, bool):
+                means.setdefault(field, []).append(float(v))
     if flags:
         ok = sum(1 for f in flags if f)
         s = rate_with_ci(ok, len(flags))
         _upsert_metric(conn, run_id, "perm_called_rate", s["rate"], s["n"], s["ci_low"], s["ci_high"])
+    for field, vals in means.items():
+        _upsert_metric(conn, run_id, f"{field}_mean", sum(vals) / len(vals), len(vals))
 
 
 def _upsert_metric(
@@ -302,6 +313,101 @@ def ingest_maldi_agent(
     return run_ids
 
 
+def ingest_medical_rag(
+    conn: sqlite3.Connection,
+    suite_id: int,
+    payload: Dict[str, Any],
+    *,
+    source_file: Optional[str] = None,
+    label: Optional[str] = None,
+    include_unanswerable: bool = False,
+) -> List[int]:
+    """入库 medical-rag 的检索基准报告（``benchmark_eval_*.json``）。
+
+    一个文件就是一个臂（纯向量 / 精排 / 句级精排），所以一个文件入一个 run。
+    通过判据用**全中**（``full_coverage == 1``）：该题的所有关键串都检索到了。
+
+    拒答题默认**不进通过率**，原因写在 ``config.note`` 里：报告里的 refusal
+    threshold 是用同一批数据按 Youden J 后验挑出来的最优阈值，拿它给自己的拒答
+    打分等于循环论证；而且每个臂的阈值不同，跨臂比较会同时混进"检索质量"和
+    "阈值挑得好不好"两个变量。拒答质量单独记成观测指标，不参与门禁。
+    """
+    answerable = payload.get("answerable_per_query")
+    if not isinstance(answerable, list) or not answerable:
+        raise EvalError("payload 缺少非空的 answerable_per_query 数组")
+    unanswerable = payload.get("unanswerable_per_query") or []
+
+    cases: List[Dict[str, Any]] = []
+    for q in answerable:
+        cov = q.get("full_coverage")
+        cases.append(
+            {
+                "case_id": str(q.get("id") or "").strip(),
+                "task_class": q.get("type") or "unknown",
+                "passed": isinstance(cov, (int, float)) and float(cov) >= 1.0,
+                "detail": {
+                    "answer_recall": q.get("answer_recall"),
+                    "mrr": q.get("mrr"),
+                    "first_gold_rank": q.get("first_gold_rank"),
+                    "missing_keys": q.get("missing_keys"),
+                },
+            }
+        )
+
+    if include_unanswerable:
+        for q in unanswerable:
+            cases.append(
+                {
+                    "case_id": str(q.get("id") or "").strip(),
+                    "task_class": "unanswerable",
+                    # 检索阶段没有"拒答"这个动作，这里退化为"没检索到任何 gold"，
+                    # 恒为 False；因此只有显式要求时才纳入，默认不掺进通过率。
+                    "passed": False,
+                    "detail": {"top_score": q.get("top_score"), "top1_doc": q.get("top1_doc")},
+                }
+            )
+
+    best = (payload.get("refusal_tradeoff") or {}).get("best") or {}
+    unans_scores = [
+        float(q["top_score"]) for q in unanswerable
+        if isinstance(q.get("top_score"), (int, float))
+    ]
+    config = {
+        "source_project": "medical-rag",
+        "benchmark_mode": payload.get("mode"),
+        "index": payload.get("index"),
+        "budget_chars": payload.get("budget_chars"),
+        "top_n": payload.get("top_n"),
+        "candidate_k": payload.get("candidate_k"),
+        "built_at": payload.get("built_at"),
+        "n_unanswerable_excluded": 0 if include_unanswerable else len(unanswerable),
+        "unanswerable_top1_mean": round(sum(unans_scores) / len(unans_scores), 4) if unans_scores else None,
+        "refusal_threshold_posthoc": best.get("threshold"),
+        "note": "拒答题默认不入通过率：阈值按 Youden J 后验挑选且逐臂不同，"
+                "用它给自己的拒答打分是循环论证，也会把检索质量与阈值调参混为一个差值。",
+    }
+
+    run_id = _insert_run(
+        conn,
+        suite_id,
+        label=label or payload.get("mode") or "medical-rag",
+        arm=payload.get("mode"),
+        model=payload.get("index"),
+        git_commit=payload.get("git_commit"),
+        config=config,
+        source_file=source_file,
+        started_at=payload.get("built_at"),
+        cases=cases,
+    )
+    if unans_scores:
+        _upsert_metric(
+            conn, run_id, "unanswerable_top1_mean",
+            sum(unans_scores) / len(unans_scores), len(unans_scores),
+        )
+    _link_suite_dataset(conn, suite_id, run_id)
+    return [run_id]
+
+
 def ingest_file(
     conn: sqlite3.Connection,
     suite_id: int,
@@ -309,13 +415,32 @@ def ingest_file(
     *,
     label: Optional[str] = None,
     label_prefix: Optional[str] = None,
+    include_unanswerable: bool = False,
 ) -> List[int]:
-    """按文件内容自动判格式入库：有 ``runs`` 走 agent 格式，有 ``cases`` 走本地格式。"""
+    """按文件内容自动判格式入库。
+
+    - 有 ``runs`` → maldi-ms-agent 报告（一个文件拆成多个消融臂）；
+    - 有 ``answerable_per_query`` → medical-rag 检索基准（一个文件一个臂）；
+    - 有 ``cases`` → 平台原生格式。
+    """
     with open(path, encoding="utf-8") as f:
         payload = json.load(f)
 
-    if isinstance(payload, dict) and "runs" in payload:
+    if not isinstance(payload, dict):
+        raise EvalError(f"不认识的报告格式（顶层不是对象）：{path}")
+    if "runs" in payload:
         return ingest_maldi_agent(conn, suite_id, payload, source_file=str(path), label_prefix=label_prefix)
+    if "answerable_per_query" in payload:
+        return ingest_medical_rag(
+            conn, suite_id, payload,
+            source_file=str(path), label=label, include_unanswerable=include_unanswerable,
+        )
+    if "cases" not in payload:
+        raise EvalError(
+            "不认识的报告格式：既没有 runs / answerable_per_query，也没有 cases。"
+            "只有聚合结论（如 generation_compare_*.json）的报告不含逐题明细，"
+            "无法重算指标，平台不接收——这正是「不信任自报数字」这条设计。"
+        )
     return ingest_native(conn, suite_id, payload, source_file=str(path), label=label)
 
 
@@ -499,6 +624,7 @@ __all__ = [
     "list_suites",
     "ingest_native",
     "ingest_maldi_agent",
+    "ingest_medical_rag",
     "ingest_file",
     "list_runs",
     "get_run",

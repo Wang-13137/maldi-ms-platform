@@ -81,6 +81,25 @@ jobs:
           set -e
           test "$CODE" = "1"
 
+      - name: 第二个算法项目同构接入（检索基准）
+        run: |
+          maldi-platform suite add --db demo.db --name rag-retrieval --dataset-version 1
+          maldi-platform run ingest --db demo.db --suite 2 --file examples/rag_vector.json
+          maldi-platform run ingest --db demo.db --suite 2 --file examples/rag_rerank.json
+          A=$(maldi-platform run list --db demo.db --suite 2 --json | python -c "import json,sys;print(json.load(sys.stdin)[0]['id'])")
+          B=$(maldi-platform run list --db demo.db --suite 2 --json | python -c "import json,sys;print(json.load(sys.stdin)[1]['id'])")
+          OUT=$(maldi-platform compare --db demo.db --a "$A" --b "$B")
+          echo "$OUT"
+          echo "$OUT" | grep -q "差异显著"
+
+      - name: 只有聚合结论的报告必须拒收
+        run: |
+          echo '{"left":"a","right":"b","n_pairs":10,"scopes":{}}' > /tmp/agg.json
+          set +e
+          maldi-platform run ingest --db demo.db --suite 2 --file /tmp/agg.json 2>&1 | tee /tmp/agg.log
+          grep -q "逐题明细" /tmp/agg.log
+          set -e
+
       - name: 生成看板
         run: |
           maldi-platform report --db demo.db --out reports/dashboard.html

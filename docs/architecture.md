@@ -103,7 +103,29 @@ McNemar 精确检验只看 `a_only / b_only`：`p = 2·P(X ≤ min(a_only, b_onl
 `_refresh_metrics` 从 `cases` 表重新统计，不信任 payload 里给的 `rate`。
 输入方可以给错，但中台算出来的必须是自洽的——这样"11/16"和"68.8%"永远不会打架。
 
+### 三种报告格式，一个原则：只吃逐题明细
+
+| 来源 | 识别标志 | 入几个 run | 通过判据 |
+|---|---|---|---|
+| 平台原生 | `cases[]` | 1 | 自带的 `passed` |
+| `maldi-ms-agent` | `runs[]` | 每个消融臂 1 个 | `grade.correct` |
+| `medical-rag` | `answerable_per_query[]` | 1 | `full_coverage == 1`（全中） |
+
+`generation_compare_*.json` 这类只有聚合结论（`left/right/n_pairs/scopes`）的报告
+**直接拒收**。这不是偷懒：没有逐题明细就没法重算，也就没法配对，收进来等于替对方
+的统计口径背书——而"不信任自报数字"正是这个中台存在的理由。
+
+拒答题的处理单独说，因为它最容易做错。`medical-rag` 的报告给了 15 条应拒答题，
+同时给了一个 `refusal_tradeoff.best.threshold`。这个阈值是用**同一批数据**按
+Youden J 挑出来的最优值，而且逐臂不同。拿它给自己的拒答打分是循环论证，跨臂比较
+还会把"检索质量"和"阈值调参"混成一个差值。所以：
+
+- 默认**不计入通过率**，只记 `unanswerable_top1_mean` 作观测；
+- `--include-unanswerable` 可显式纳入，此时按"检索不到 gold 即未通过"计入；
+- 无论哪种，理由都写进 `runs.config.note`，跟着数据走，不靠文档口头传承。
+
 ## 五、看板为什么是静态 HTML
+
 
 需求是"发给人看、能进仓库、能离线打开"。任何前端框架都不满足"离线打开还能没有构建步骤"。
 所以看板是服务端拼字符串：内联 CSS、内联 SVG 条、零 JS、零外链。

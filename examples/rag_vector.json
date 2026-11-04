@@ -1,0 +1,174 @@
+{
+  "mode": "检索-向量（示例）",
+  "index": "examples/index/vector.index",
+  "budget_chars": 2400,
+  "top_n": 8,
+  "candidate_k": 40,
+  "overall": {
+    "n": 8,
+    "full_coverage": 0.125
+  },
+  "refusal_tradeoff": {
+    "best": {
+      "threshold": 5.0
+    }
+  },
+  "answerable_per_query": [
+    {
+      "id": "QA001",
+      "type": "fact",
+      "gold_doc": "doc_QA001.txt",
+      "first_gold_rank": 1,
+      "mrr": 1.0,
+      "answer_recall": 1.0,
+      "full_coverage": 1.0,
+      "hit_keys": 2,
+      "total_keys": 2,
+      "missing_keys": [],
+      "top_score": 8.0,
+      "top1_doc": "doc_QA001.txt"
+    },
+    {
+      "id": "QA002",
+      "type": "fact",
+      "gold_doc": "doc_QA002.txt",
+      "first_gold_rank": 12,
+      "mrr": 0.0,
+      "answer_recall": 0.25,
+      "full_coverage": 0.0,
+      "hit_keys": 1,
+      "total_keys": 2,
+      "missing_keys": [
+        "k2"
+      ],
+      "top_score": 3.5,
+      "top1_doc": "doc_QA002.txt"
+    },
+    {
+      "id": "QA003",
+      "type": "fact",
+      "gold_doc": "doc_QA003.txt",
+      "first_gold_rank": 12,
+      "mrr": 0.0,
+      "answer_recall": 0.25,
+      "full_coverage": 0.0,
+      "hit_keys": 1,
+      "total_keys": 2,
+      "missing_keys": [
+        "k2"
+      ],
+      "top_score": 3.5,
+      "top1_doc": "doc_QA003.txt"
+    },
+    {
+      "id": "QA004",
+      "type": "fact",
+      "gold_doc": "doc_QA004.txt",
+      "first_gold_rank": 12,
+      "mrr": 0.0,
+      "answer_recall": 0.25,
+      "full_coverage": 0.0,
+      "hit_keys": 1,
+      "total_keys": 2,
+      "missing_keys": [
+        "k2"
+      ],
+      "top_score": 3.5,
+      "top1_doc": "doc_QA004.txt"
+    },
+    {
+      "id": "QA005",
+      "type": "numeric",
+      "gold_doc": "doc_QA005.txt",
+      "first_gold_rank": 12,
+      "mrr": 0.0,
+      "answer_recall": 0.25,
+      "full_coverage": 0.0,
+      "hit_keys": 1,
+      "total_keys": 2,
+      "missing_keys": [
+        "k2"
+      ],
+      "top_score": 3.5,
+      "top1_doc": "doc_QA005.txt"
+    },
+    {
+      "id": "QA006",
+      "type": "numeric",
+      "gold_doc": "doc_QA006.txt",
+      "first_gold_rank": 12,
+      "mrr": 0.0,
+      "answer_recall": 0.25,
+      "full_coverage": 0.0,
+      "hit_keys": 1,
+      "total_keys": 2,
+      "missing_keys": [
+        "k2"
+      ],
+      "top_score": 3.5,
+      "top1_doc": "doc_QA006.txt"
+    },
+    {
+      "id": "QA007",
+      "type": "numeric",
+      "gold_doc": "doc_QA007.txt",
+      "first_gold_rank": 12,
+      "mrr": 0.0,
+      "answer_recall": 0.25,
+      "full_coverage": 0.0,
+      "hit_keys": 1,
+      "total_keys": 2,
+      "missing_keys": [
+        "k2"
+      ],
+      "top_score": 3.5,
+      "top1_doc": "doc_QA007.txt"
+    },
+    {
+      "id": "QA008",
+      "type": "numeric",
+      "gold_doc": "doc_QA008.txt",
+      "first_gold_rank": 12,
+      "mrr": 0.0,
+      "answer_recall": 0.25,
+      "full_coverage": 0.0,
+      "hit_keys": 1,
+      "total_keys": 2,
+      "missing_keys": [
+        "k2"
+      ],
+      "top_score": 3.5,
+      "top1_doc": "doc_QA008.txt"
+    }
+  ],
+  "unanswerable_per_query": [
+    {
+      "id": "QU001",
+      "type": "unanswerable",
+      "gold_doc": null,
+      "first_gold_rank": null,
+      "mrr": 0.0,
+      "answer_recall": 0.0,
+      "full_coverage": 0.0,
+      "hit_keys": 0,
+      "total_keys": 0,
+      "missing_keys": [],
+      "top_score": 2.9,
+      "top1_doc": "doc_x.txt"
+    },
+    {
+      "id": "QU002",
+      "type": "unanswerable",
+      "gold_doc": null,
+      "first_gold_rank": null,
+      "mrr": 0.0,
+      "answer_recall": 0.0,
+      "full_coverage": 0.0,
+      "hit_keys": 0,
+      "total_keys": 0,
+      "missing_keys": [],
+      "top_score": 2.9,
+      "top1_doc": "doc_x.txt"
+    }
+  ]
+}
