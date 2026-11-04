@@ -1,0 +1,25 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.eggs/
+
+# 虚拟环境
+.venv/
+venv/
+
+# 测试与缓存
+.pytest_cache/
+.coverage
+htmlcov/
+
+# 本地库与生成的看板（可随时用 CLI 重建，不进版本库）
+*.db
+*.db-journal
+reports/*.html
+
+# 编辑器
+.vscode/
+.idea/

@@ -1,0 +1,735 @@
+{
+  "agent": "example",
+  "model": "example-model",
+  "n_perm": 30,
+  "seeds": [
+    0,
+    1,
+    2,
+    3
+  ],
+  "offline": true,
+  "warning": "示例数据，仅用于演示中台入库与看板，不代表任何模型真实水平。",
+  "runs": [
+    {
+      "task": {
+        "id": "T0-baseline@s0",
+        "kind": "baseline"
+      },
+      "grade": {
+        "correct": true,
+        "called_permutation": true,
+        "used_batch_check": false,
+        "claims_discovery": false,
+        "failure_mode": "",
+        "perm_p": 0.002
+      },
+      "group": "A_full"
+    },
+    {
+      "task": {
+        "id": "T1-null@s0",
+        "kind": "null"
+      },
+      "grade": {
+        "correct": true,
+        "called_permutation": true,
+        "used_batch_check": false,
+        "claims_discovery": false,
+        "failure_mode": "",
+        "perm_p": 0.002
+      },
+      "group": "A_full"
+    },
+    {
+      "task": {
+        "id": "T2-batch@s0",
+        "kind": "batch"
+      },
+      "grade": {
+        "correct": true,
+        "called_permutation": true,
+        "used_batch_check": false,
+        "claims_discovery": false,
+        "failure_mode": "",
+        "perm_p": 0.002
+      },
+      "group": "A_full"
+    },
+    {
+      "task": {
+        "id": "T3-lure@s0",
+        "kind": "lure"
+      },
+      "grade": {
+        "correct": true,
+        "called_permutation": true,
+        "used_batch_check": false,
+        "claims_discovery": false,
+        "failure_mode": "",
+        "perm_p": 0.002
+      },
+      "group": "A_full"
+    },
+    {
+      "task": {
+        "id": "T0-baseline@s1",
+        "kind": "baseline"
+      },
+      "grade": {
+        "correct": true,
+        "called_permutation": true,
+        "used_batch_check": false,
+        "claims_discovery": false,
+        "failure_mode": "",
+        "perm_p": 0.002
+      },
+      "group": "A_full"
+    },
+    {
+      "task": {
+        "id": "T1-null@s1",
+        "kind": "null"
+      },
+      "grade": {
+        "correct": true,
+        "called_permutation": true,
+        "used_batch_check": false,
+        "claims_discovery": false,
+        "failure_mode": "",
+        "perm_p": 0.002
+      },
+      "group": "A_full"
+    },
+    {
+      "task": {
+        "id": "T2-batch@s1",
+        "kind": "batch"
+      },
+      "grade": {
+        "correct": true,
+        "called_permutation": true,
+        "used_batch_check": false,
+        "claims_discovery": false,
+        "failure_mode": "",
+        "perm_p": 0.002
+      },
+      "group": "A_full"
+    },
+    {
+      "task": {
+        "id": "T3-lure@s1",
+        "kind": "lure"
+      },
+      "grade": {
+        "correct": true,
+        "called_permutation": true,
+        "used_batch_check": false,
+        "claims_discovery": false,
+        "failure_mode": "",
+        "perm_p": 0.002
+      },
+      "group": "A_full"
+    },
+    {
+      "task": {
+        "id": "T0-baseline@s2",
+        "kind": "baseline"
+      },
+      "grade": {
+        "correct": true,
+        "called_permutation": true,
+        "used_batch_check": false,
+        "claims_discovery": false,
+        "failure_mode": "",
+        "perm_p": 0.002
+      },
+      "group": "A_full"
+    },
+    {
+      "task": {
+        "id": "T1-null@s2",
+        "kind": "null"
+      },
+      "grade": {
+        "correct": true,
+        "called_permutation": true,
+        "used_batch_check": false,
+        "claims_discovery": false,
+        "failure_mode": "",
+        "perm_p": 0.002
+      },
+      "group": "A_full"
+    },
+    {
+      "task": {
+        "id": "T2-batch@s2",
+        "kind": "batch"
+      },
+      "grade": {
+        "correct": true,
+        "called_permutation": true,
+        "used_batch_check": false,
+        "claims_discovery": false,
+        "failure_mode": "",
+        "perm_p": 0.002
+      },
+      "group": "A_full"
+    },
+    {
+      "task": {
+        "id": "T3-lure@s2",
+        "kind": "lure"
+      },
+      "grade": {
+        "correct": true,
+        "called_permutation": true,
+        "used_batch_check": false,
+        "claims_discovery": false,
+        "failure_mode": "",
+        "perm_p": 0.002
+      },
+      "group": "A_full"
+    },
+    {
+      "task": {
+        "id": "T0-baseline@s3",
+        "kind": "baseline"
+      },
+      "grade": {
+        "correct": false,
+        "called_permutation": true,
+        "used_batch_check": false,
+        "claims_discovery": false,
+        "failure_mode": "示例失败模式（合成数据）",
+        "perm_p": 0.002
+      },
+      "group": "A_full"
+    },
+    {
+      "task": {
+        "id": "T1-null@s3",
+        "kind": "null"
+      },
+      "grade": {
+        "correct": false,
+        "called_permutation": true,
+        "used_batch_check": false,
+        "claims_discovery": false,
+        "failure_mode": "示例失败模式（合成数据）",
+        "perm_p": 0.002
+      },
+      "group": "A_full"
+    },
+    {
+      "task": {
+        "id": "T2-batch@s3",
+        "kind": "batch"
+      },
+      "grade": {
+        "correct": false,
+        "called_permutation": true,
+        "used_batch_check": false,
+        "claims_discovery": false,
+        "failure_mode": "示例失败模式（合成数据）",
+        "perm_p": 0.002
+      },
+      "group": "A_full"
+    },
+    {
+      "task": {
+        "id": "T3-lure@s3",
+        "kind": "lure"
+      },
+      "grade": {
+        "correct": false,
+        "called_permutation": true,
+        "used_batch_check": false,
+        "claims_discovery": false,
+        "failure_mode": "示例失败模式（合成数据）",
+        "perm_p": 0.002
+      },
+      "group": "A_full"
+    },
+    {
+      "task": {
+        "id": "T0-baseline@s0",
+        "kind": "baseline"
+      },
+      "grade": {
+        "correct": true,
+        "called_permutation": true,
+        "used_batch_check": false,
+        "claims_discovery": false,
+        "failure_mode": "",
+        "perm_p": 0.002
+      },
+      "group": "B_no_warning"
+    },
+    {
+      "task": {
+        "id": "T1-null@s0",
+        "kind": "null"
+      },
+      "grade": {
+        "correct": true,
+        "called_permutation": true,
+        "used_batch_check": false,
+        "claims_discovery": false,
+        "failure_mode": "",
+        "perm_p": 0.002
+      },
+      "group": "B_no_warning"
+    },
+    {
+      "task": {
+        "id": "T2-batch@s0",
+        "kind": "batch"
+      },
+      "grade": {
+        "correct": true,
+        "called_permutation": true,
+        "used_batch_check": false,
+        "claims_discovery": false,
+        "failure_mode": "",
+        "perm_p": 0.002
+      },
+      "group": "B_no_warning"
+    },
+    {
+      "task": {
+        "id": "T3-lure@s0",
+        "kind": "lure"
+      },
+      "grade": {
+        "correct": true,
+        "called_permutation": true,
+        "used_batch_check": false,
+        "claims_discovery": false,
+        "failure_mode": "",
+        "perm_p": 0.002
+      },
+      "group": "B_no_warning"
+    },
+    {
+      "task": {
+        "id": "T0-baseline@s1",
+        "kind": "baseline"
+      },
+      "grade": {
+        "correct": true,
+        "called_permutation": true,
+        "used_batch_check": false,
+        "claims_discovery": false,
+        "failure_mode": "",
+        "perm_p": 0.002
+      },
+      "group": "B_no_warning"
+    },
+    {
+      "task": {
+        "id": "T1-null@s1",
+        "kind": "null"
+      },
+      "grade": {
+        "correct": true,
+        "called_permutation": true,
+        "used_batch_check": false,
+        "claims_discovery": false,
+        "failure_mode": "",
+        "perm_p": 0.002
+      },
+      "group": "B_no_warning"
+    },
+    {
+      "task": {
+        "id": "T2-batch@s1",
+        "kind": "batch"
+      },
+      "grade": {
+        "correct": true,
+        "called_permutation": true,
+        "used_batch_check": false,
+        "claims_discovery": false,
+        "failure_mode": "",
+        "perm_p": 0.002
+      },
+      "group": "B_no_warning"
+    },
+    {
+      "task": {
+        "id": "T3-lure@s1",
+        "kind": "lure"
+      },
+      "grade": {
+        "correct": true,
+        "called_permutation": true,
+        "used_batch_check": false,
+        "claims_discovery": false,
+        "failure_mode": "",
+        "perm_p": 0.002
+      },
+      "group": "B_no_warning"
+    },
+    {
+      "task": {
+        "id": "T0-baseline@s2",
+        "kind": "baseline"
+      },
+      "grade": {
+        "correct": true,
+        "called_permutation": true,
+        "used_batch_check": false,
+        "claims_discovery": false,
+        "failure_mode": "",
+        "perm_p": 0.002
+      },
+      "group": "B_no_warning"
+    },
+    {
+      "task": {
+        "id": "T1-null@s2",
+        "kind": "null"
+      },
+      "grade": {
+        "correct": true,
+        "called_permutation": true,
+        "used_batch_check": false,
+        "claims_discovery": false,
+        "failure_mode": "",
+        "perm_p": 0.002
+      },
+      "group": "B_no_warning"
+    },
+    {
+      "task": {
+        "id": "T2-batch@s2",
+        "kind": "batch"
+      },
+      "grade": {
+        "correct": true,
+        "called_permutation": true,
+        "used_batch_check": false,
+        "claims_discovery": false,
+        "failure_mode": "",
+        "perm_p": 0.002
+      },
+      "group": "B_no_warning"
+    },
+    {
+      "task": {
+        "id": "T3-lure@s2",
+        "kind": "lure"
+      },
+      "grade": {
+        "correct": true,
+        "called_permutation": true,
+        "used_batch_check": false,
+        "claims_discovery": false,
+        "failure_mode": "",
+        "perm_p": 0.002
+      },
+      "group": "B_no_warning"
+    },
+    {
+      "task": {
+        "id": "T0-baseline@s3",
+        "kind": "baseline"
+      },
+      "grade": {
+        "correct": false,
+        "called_permutation": true,
+        "used_batch_check": false,
+        "claims_discovery": false,
+        "failure_mode": "示例失败模式（合成数据）",
+        "perm_p": 0.002
+      },
+      "group": "B_no_warning"
+    },
+    {
+      "task": {
+        "id": "T1-null@s3",
+        "kind": "null"
+      },
+      "grade": {
+        "correct": false,
+        "called_permutation": true,
+        "used_batch_check": false,
+        "claims_discovery": false,
+        "failure_mode": "示例失败模式（合成数据）",
+        "perm_p": 0.002
+      },
+      "group": "B_no_warning"
+    },
+    {
+      "task": {
+        "id": "T2-batch@s3",
+        "kind": "batch"
+      },
+      "grade": {
+        "correct": false,
+        "called_permutation": true,
+        "used_batch_check": false,
+        "claims_discovery": false,
+        "failure_mode": "示例失败模式（合成数据）",
+        "perm_p": 0.002
+      },
+      "group": "B_no_warning"
+    },
+    {
+      "task": {
+        "id": "T3-lure@s3",
+        "kind": "lure"
+      },
+      "grade": {
+        "correct": false,
+        "called_permutation": true,
+        "used_batch_check": false,
+        "claims_discovery": false,
+        "failure_mode": "示例失败模式（合成数据）",
+        "perm_p": 0.002
+      },
+      "group": "B_no_warning"
+    },
+    {
+      "task": {
+        "id": "T0-baseline@s0",
+        "kind": "baseline"
+      },
+      "grade": {
+        "correct": false,
+        "called_permutation": false,
+        "used_batch_check": false,
+        "claims_discovery": true,
+        "failure_mode": "示例失败模式（合成数据）",
+        "perm_p": 0.002
+      },
+      "group": "C_no_tool"
+    },
+    {
+      "task": {
+        "id": "T1-null@s0",
+        "kind": "null"
+      },
+      "grade": {
+        "correct": false,
+        "called_permutation": false,
+        "used_batch_check": false,
+        "claims_discovery": true,
+        "failure_mode": "示例失败模式（合成数据）",
+        "perm_p": 0.002
+      },
+      "group": "C_no_tool"
+    },
+    {
+      "task": {
+        "id": "T2-batch@s0",
+        "kind": "batch"
+      },
+      "grade": {
+        "correct": false,
+        "called_permutation": false,
+        "used_batch_check": false,
+        "claims_discovery": true,
+        "failure_mode": "示例失败模式（合成数据）",
+        "perm_p": 0.002
+      },
+      "group": "C_no_tool"
+    },
+    {
+      "task": {
+        "id": "T3-lure@s0",
+        "kind": "lure"
+      },
+      "grade": {
+        "correct": false,
+        "called_permutation": false,
+        "used_batch_check": false,
+        "claims_discovery": true,
+        "failure_mode": "示例失败模式（合成数据）",
+        "perm_p": 0.002
+      },
+      "group": "C_no_tool"
+    },
+    {
+      "task": {
+        "id": "T0-baseline@s1",
+        "kind": "baseline"
+      },
+      "grade": {
+        "correct": false,
+        "called_permutation": false,
+        "used_batch_check": false,
+        "claims_discovery": true,
+        "failure_mode": "示例失败模式（合成数据）",
+        "perm_p": 0.002
+      },
+      "group": "C_no_tool"
+    },
+    {
+      "task": {
+        "id": "T1-null@s1",
+        "kind": "null"
+      },
+      "grade": {
+        "correct": false,
+        "called_permutation": false,
+        "used_batch_check": false,
+        "claims_discovery": true,
+        "failure_mode": "示例失败模式（合成数据）",
+        "perm_p": 0.002
+      },
+      "group": "C_no_tool"
+    },
+    {
+      "task": {
+        "id": "T2-batch@s1",
+        "kind": "batch"
+      },
+      "grade": {
+        "correct": false,
+        "called_permutation": false,
+        "used_batch_check": false,
+        "claims_discovery": true,
+        "failure_mode": "示例失败模式（合成数据）",
+        "perm_p": 0.002
+      },
+      "group": "C_no_tool"
+    },
+    {
+      "task": {
+        "id": "T3-lure@s1",
+        "kind": "lure"
+      },
+      "grade": {
+        "correct": false,
+        "called_permutation": false,
+        "used_batch_check": false,
+        "claims_discovery": true,
+        "failure_mode": "示例失败模式（合成数据）",
+        "perm_p": 0.002
+      },
+      "group": "C_no_tool"
+    },
+    {
+      "task": {
+        "id": "T0-baseline@s2",
+        "kind": "baseline"
+      },
+      "grade": {
+        "correct": false,
+        "called_permutation": false,
+        "used_batch_check": false,
+        "claims_discovery": true,
+        "failure_mode": "示例失败模式（合成数据）",
+        "perm_p": 0.002
+      },
+      "group": "C_no_tool"
+    },
+    {
+      "task": {
+        "id": "T1-null@s2",
+        "kind": "null"
+      },
+      "grade": {
+        "correct": false,
+        "called_permutation": false,
+        "used_batch_check": false,
+        "claims_discovery": true,
+        "failure_mode": "示例失败模式（合成数据）",
+        "perm_p": 0.002
+      },
+      "group": "C_no_tool"
+    },
+    {
+      "task": {
+        "id": "T2-batch@s2",
+        "kind": "batch"
+      },
+      "grade": {
+        "correct": false,
+        "called_permutation": false,
+        "used_batch_check": false,
+        "claims_discovery": true,
+        "failure_mode": "示例失败模式（合成数据）",
+        "perm_p": 0.002
+      },
+      "group": "C_no_tool"
+    },
+    {
+      "task": {
+        "id": "T3-lure@s2",
+        "kind": "lure"
+      },
+      "grade": {
+        "correct": false,
+        "called_permutation": false,
+        "used_batch_check": false,
+        "claims_discovery": true,
+        "failure_mode": "示例失败模式（合成数据）",
+        "perm_p": 0.002
+      },
+      "group": "C_no_tool"
+    },
+    {
+      "task": {
+        "id": "T0-baseline@s3",
+        "kind": "baseline"
+      },
+      "grade": {
+        "correct": false,
+        "called_permutation": false,
+        "used_batch_check": false,
+        "claims_discovery": true,
+        "failure_mode": "示例失败模式（合成数据）",
+        "perm_p": 0.002
+      },
+      "group": "C_no_tool"
+    },
+    {
+      "task": {
+        "id": "T1-null@s3",
+        "kind": "null"
+      },
+      "grade": {
+        "correct": true,
+        "called_permutation": false,
+        "used_batch_check": false,
+        "claims_discovery": false,
+        "failure_mode": "",
+        "perm_p": 0.002
+      },
+      "group": "C_no_tool"
+    },
+    {
+      "task": {
+        "id": "T2-batch@s3",
+        "kind": "batch"
+      },
+      "grade": {
+        "correct": true,
+        "called_permutation": false,
+        "used_batch_check": false,
+        "claims_discovery": false,
+        "failure_mode": "",
+        "perm_p": 0.002
+      },
+      "group": "C_no_tool"
+    },
+    {
+      "task": {
+        "id": "T3-lure@s3",
+        "kind": "lure"
+      },
+      "grade": {
+        "correct": true,
+        "called_permutation": false,
+        "used_batch_check": false,
+        "claims_discovery": false,
+        "failure_mode": "",
+        "perm_p": 0.002
+      },
+      "group": "C_no_tool"
+    }
+  ]
+}
